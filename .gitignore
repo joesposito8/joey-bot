@@ -1,4 +1,7 @@
 .keys
 .venv
 .env
+.vscode
+
 env.sh
+.pyproject.toml

@@ -1,0 +1,10 @@
+# pyproject.toml
+[tool.black]
+# maximum line length
+line-length = 88
+
+# target Python versions (optional; e.g. py37, py38, py39)
+target-version = ["py38"]
+
+# don’t normalize string quotes
+skip-string-normalization = true
