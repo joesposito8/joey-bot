@@ -1,0 +1,4 @@
+.keys
+.venv
+.env
+env.sh
