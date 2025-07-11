@@ -3,37 +3,37 @@ info:
   title: idea-guy Function API
   version: "1.0.0"
   description: |
-    Azure Function App that maintains a Google Spreadsheet of ideas and rates them on a variety of criteria.
+    Azure Function App that maintains a Google Spreadsheet of ideas
+    and rates them on a variety of criteria.
 
 servers:
-  - url: https://{functionAppName}.azurewebsites.net
+  - url: https://idea-guy-func.azurewebsites.net
     description: Your deployed Function App
-    variables:
-      functionAppName:
-        default: idea-guy-func
-        description: Azure Function App name
 
 components:
+  schemas: {}
+
   securitySchemes:
     azureFunctionKey:
       type: apiKey
-      in: query
-      name: code
+      in: header
+      name: x-functions-key
       description: |
-        Your Azure Functions host key or function-specific key.  
-        This will be sent as `?code=YOUR_KEY` on every request.
+        Your Azure Function host- or function-specific key.  
+        Sent as the HTTP header `x-functions-key: YOUR_KEY`.
+
+# apply this scheme to all operations by default
+security:
+  - azureFunctionKey: []
 
 paths:
   /api/read-sheet:
     post:
       operationId: getIdeaSheetData
       summary: Returns the ideas data
-      description: |
-        Returns the ideas data without any input parameters.
-      security:
-        - azureFunctionKey: []
+      description: Returns the ideas data without any input parameters.
       responses:
-        '200':
+        "200":
           description: Successful fetch of sheet data
           content:
             application/json:
@@ -42,9 +42,6 @@ paths:
                 properties:
                   sheet_data:
                     type: object
-                    description: |
-                      Keys are worksheet names. Each value is an array
-                      of row-objects mapping header→cell-value.
                     additionalProperties:
                       type: array
                       items:
@@ -62,14 +59,14 @@ paths:
                           - Rating
               examples:
                 sample:
-                  summary: Example sheet_data response
+                  summary: Example response
                   value:
                     sheet_data:
                       Ideas:
                         - Description of Idea: "test"
                           Notes: "- test notes"
                           Rating: "3"
-        '500':
+        "500":
           description: Error processing request
           content:
             application/json:
@@ -78,7 +75,6 @@ paths:
                 properties:
                   error:
                     type: string
-                    description: Human-readable error message
               examples:
                 failure:
                   summary: Sample error
