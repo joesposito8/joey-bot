@@ -1,0 +1,22 @@
+// .vscode/settings.json
+{
+    // 1) Format Python files with Black
+    "python.formatting.provider": "black",
+    // 2) Pass any Black args (e.g. custom line length)
+    "python.formatting.blackArgs": [
+        "--line-length",
+        "88"
+    ],
+    // 3) Run the formatter on save
+    "editor.formatOnSave": true,
+    // 4) Ensure the Python extension is your default for Python files
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter"
+    },
+    "azureFunctions.deploySubpath": ".",
+    "azureFunctions.scmDoBuildDuringDeployment": true,
+    "azureFunctions.pythonVenv": ".venv",
+    "azureFunctions.projectLanguage": "Python",
+    "azureFunctions.projectRuntime": "~4",
+    "debug.internalConsoleOptions": "neverOpen"
+}

@@ -1,0 +1,86 @@
+openapi: 3.1.0
+info:
+  title: idea-guy Function API
+  version: "1.0.0"
+  description: |
+    Azure Function App that maintains a Google Spreadsheet of ideas and rates them on a variety of criteria.
+
+servers:
+  - url: https://{functionAppName}.azurewebsites.net
+    description: Your deployed Function App
+    variables:
+      functionAppName:
+        default: idea-guy-func
+        description: Azure Function App name
+
+components:
+  securitySchemes:
+    azureFunctionKey:
+      type: apiKey
+      in: query
+      name: code
+      description: |
+        Your Azure Functions host key or function-specific key.  
+        This will be sent as `?code=YOUR_KEY` on every request.
+
+paths:
+  /api/read-sheet:
+    post:
+      operationId: getIdeaSheetData
+      summary: Returns the ideas data
+      description: |
+        Returns the ideas data without any input parameters.
+      security:
+        - azureFunctionKey: []
+      responses:
+        '200':
+          description: Successful fetch of sheet data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sheet_data:
+                    type: object
+                    description: |
+                      Keys are worksheet names. Each value is an array
+                      of row-objects mapping header→cell-value.
+                    additionalProperties:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          Description of Idea:
+                            type: string
+                          Notes:
+                            type: string
+                          Rating:
+                            type: string
+                        required:
+                          - Description of Idea
+                          - Notes
+                          - Rating
+              examples:
+                sample:
+                  summary: Example sheet_data response
+                  value:
+                    sheet_data:
+                      Ideas:
+                        - Description of Idea: "test"
+                          Notes: "- test notes"
+                          Rating: "3"
+        '500':
+          description: Error processing request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    description: Human-readable error message
+              examples:
+                failure:
+                  summary: Sample error
+                  value:
+                    error: "Invalid credentials or spreadsheet ID"

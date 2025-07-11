@@ -1,7 +1,10 @@
 .keys
 .venv
 .env
-.vscode
 
 env.sh
-.pyproject.toml
+local.settings.json
+__pycache__
+.python_packages
+
+*.egg-info/
