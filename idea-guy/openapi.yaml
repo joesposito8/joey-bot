@@ -11,7 +11,51 @@ servers:
     description: Your deployed Function App
 
 components:
-  schemas: {}
+  schemas:
+    IdeaRequest:
+      type: object
+      required:
+        - idea
+      properties:
+        idea:
+          type: string
+          description: The business idea to be analyzed and added to the spreadsheet
+          example: "A mobile app that helps people find and book local fitness classes"
+    
+    IdeaResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Success message
+          example: "Idea added successfully"
+        idea:
+          type: string
+          description: The original idea that was submitted
+          example: "A mobile app that helps people find and book local fitness classes"
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 10
+          description: OpenAI's rating of the idea (1-10 scale)
+          example: 8
+        notes:
+          type: string
+          description: Detailed analysis and recommendations from OpenAI
+          example: "This is a promising idea with good market potential. The fitness industry is growing rapidly..."
+        timestamp:
+          type: string
+          format: date-time
+          description: ISO timestamp when the idea was added
+          example: "2024-01-15T10:30:00.123456"
+    
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: "Missing 'idea' field in request body"
 
   securitySchemes:
     azureFunctionKey:
@@ -27,7 +71,68 @@ security:
   - azureFunctionKey: []
 
 paths:
-  /api/read-sheet:
+  /api/add_idea:
+    post:
+      operationId: addIdea
+      summary: Add and analyze a new business idea
+      description: |
+        Accepts a business idea, uses OpenAI's GPT-4o model to rate it (1-10) 
+        and provide detailed analysis, then stores the results in the Google Spreadsheet.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IdeaRequest'
+            examples:
+              sample:
+                summary: Sample idea submission
+                value:
+                  idea: "A subscription service for personalized meal planning with AI-generated recipes"
+      responses:
+        "200":
+          description: Idea successfully added and analyzed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdeaResponse'
+              examples:
+                success:
+                  summary: Successful idea addition
+                  value:
+                    message: "Idea added successfully"
+                    idea: "A subscription service for personalized meal planning with AI-generated recipes"
+                    rating: 8
+                    notes: "This is a strong concept with clear market demand. The AI component adds significant value..."
+                    timestamp: "2024-01-15T10:30:00.123456"
+        "400":
+          description: Bad request - missing or invalid idea
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missing_idea:
+                  summary: Missing idea field
+                  value:
+                    error: "Missing 'idea' field in request body"
+                empty_idea:
+                  summary: Empty idea
+                  value:
+                    error: "Idea cannot be empty"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                server_error:
+                  summary: Server error
+                  value:
+                    error: "Failed to add idea to spreadsheet"
+
+  /api/read_sheet:
     post:
       operationId: getIdeaSheetData
       summary: Returns the ideas data
@@ -71,10 +176,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                $ref: '#/components/schemas/ErrorResponse'
               examples:
                 failure:
                   summary: Sample error

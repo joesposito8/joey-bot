@@ -4,21 +4,13 @@ import json
 import logging
 import os
 
-import gspread
-from google.oauth2.service_account import Credentials
-from openai import OpenAI
-
-# Google Sheets configuration
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
-spreadsheet_id: str = os.getenv("IDEA_GUY_SHEET_ID", "")
-creds = Credentials.from_service_account_file(
-    os.getenv("GOOGLE_SHEETS_KEY_PATH"), scopes=SCOPES
-)
+from common import get_openai_client, get_google_sheets_client, get_spreadsheet
 
 # Initialize clients
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-gc = gspread.authorize(creds)
-spreadsheet = gc.open_by_key(spreadsheet_id)
+spreadsheet_id: str = os.getenv("IDEA_GUY_SHEET_ID", "")
+client = get_openai_client()
+gc = get_google_sheets_client()
+spreadsheet = get_spreadsheet(spreadsheet_id, gc)
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
