@@ -22,9 +22,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         for ws in spreadsheet.worksheets():
             result[ws.title] = []
             values = ws.get_all_values()
-            column_headers = values[0]
+            column_headers = values[1]
 
-            for row in values[1:]:
+            for row in values[2:]:
                 unit = {}
                 for i, value in enumerate(row):
                     unit[column_headers[i]] = value

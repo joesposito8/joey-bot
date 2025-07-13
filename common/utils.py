@@ -1,25 +1,28 @@
 import os
 import logging
-from typing import Optional
+from typing import Optional, List, Dict
+from dataclasses import dataclass
 
 import gspread
 from google.oauth2.service_account import Credentials
 from openai import OpenAI
 
 
+@dataclass
+class Information:
+    columns: List[str]
+
+    def __init__(self, data: Optional[Dict[str, str]] = None):
+        if data is None:
+            self.content = {column: "" for column in self.columns}
+        else:
+            for column in self.columns:
+                if column not in data:
+                    raise ValueError(f"Missing {column} in data")
+            self.content = {column: data[column] for column in self.columns}
+
+
 def get_openai_client(api_key: Optional[str] = None) -> OpenAI:
-    """
-    Initialize and return an OpenAI client.
-
-    Args:
-        api_key: Optional API key. If not provided, will use OPENAI_API_KEY environment variable.
-
-    Returns:
-        OpenAI client instance
-
-    Raises:
-        ValueError: If no API key is provided and OPENAI_API_KEY environment variable is not set
-    """
     if api_key is None:
         api_key = os.getenv("OPENAI_API_KEY")
 
@@ -34,19 +37,6 @@ def get_openai_client(api_key: Optional[str] = None) -> OpenAI:
 def get_google_sheets_client(
     key_path: Optional[str] = None, scopes: Optional[list] = None
 ) -> gspread.Client:
-    """
-    Initialize and return a Google Sheets client.
-
-    Args:
-        key_path: Optional path to service account key file. If not provided, will use GOOGLE_SHEETS_KEY_PATH environment variable.
-        scopes: Optional list of Google API scopes. Defaults to spreadsheets scope.
-
-    Returns:
-        gspread client instance
-
-    Raises:
-        ValueError: If no key path is provided and GOOGLE_SHEETS_KEY_PATH environment variable is not set
-    """
     if key_path is None:
         key_path = os.getenv("GOOGLE_SHEETS_KEY_PATH")
 
@@ -69,20 +59,6 @@ def get_google_sheets_client(
 def get_spreadsheet(
     spreadsheet_id: str, client: Optional[gspread.Client] = None
 ) -> gspread.Spreadsheet:
-    """
-    Get a Google Spreadsheet by ID.
-
-    Args:
-        spreadsheet_id: The ID of the spreadsheet to open
-        client: Optional gspread client. If not provided, will create one using default settings.
-
-    Returns:
-        gspread Spreadsheet instance
-
-    Raises:
-        ValueError: If spreadsheet_id is empty
-        Exception: If spreadsheet cannot be opened
-    """
     if not spreadsheet_id:
         raise ValueError("Spreadsheet ID is required")
 

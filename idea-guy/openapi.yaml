@@ -15,12 +15,22 @@ components:
     IdeaRequest:
       type: object
       required:
-        - idea
+        - "Idea_Overview"
+        - "Deliverable"
+        - "Motivation"
       properties:
-        idea:
+        "Idea_Overview":
           type: string
-          description: The business idea to be analyzed and added to the spreadsheet
+          description: A comprehensive overview of the business idea
           example: "A mobile app that helps people find and book local fitness classes"
+        "Deliverable":
+          type: string
+          description: What will be delivered or created as part of this idea
+          example: "A mobile application with booking system and payment integration"
+        "Motivation":
+          type: string
+          description: The motivation behind pursuing this idea
+          example: "To solve the problem of people struggling to find and book fitness classes in their area"
     
     IdeaResponse:
       type: object
@@ -29,20 +39,58 @@ components:
           type: string
           description: Success message
           example: "Idea added successfully"
-        idea:
+        "Idea_Overview":
           type: string
-          description: The original idea that was submitted
+          description: The original idea overview that was submitted
           example: "A mobile app that helps people find and book local fitness classes"
-        rating:
+        "Deliverable":
+          type: string
+          description: The original deliverable that was submitted
+          example: "A mobile application with booking system and payment integration"
+        "Motivation":
+          type: string
+          description: The original motivation that was submitted
+          example: "To solve the problem of people struggling to find and book fitness classes in their area"
+        "Analysis_Summary":
+          type: string
+          description: Detailed analysis and summary of the idea
+          example: "This is a promising idea with good market potential. The fitness industry is growing rapidly..."
+        "Novelty_Rating":
           type: integer
           minimum: 1
           maximum: 10
-          description: OpenAI's rating of the idea (1-10 scale)
+          description: Rating of how novel/unique the idea is (1-10 scale)
+          example: 7
+        "Feasibility_Rating":
+          type: integer
+          minimum: 1
+          maximum: 10
+          description: Rating of how feasible the idea is to implement (1-10 scale)
           example: 8
-        notes:
-          type: string
-          description: Detailed analysis and recommendations from OpenAI
-          example: "This is a promising idea with good market potential. The fitness industry is growing rapidly..."
+        "Effort_Rating":
+          type: integer
+          minimum: 1
+          maximum: 10
+          description: Rating of the effort required to implement the idea (1-10 scale)
+          example: 6
+        "Impact_Rating":
+          type: integer
+          minimum: 1
+          maximum: 10
+          description: Rating of the potential impact of the idea (1-10 scale)
+          example: 8
+        "Risk_Rating":
+          type: integer
+          minimum: 1
+          maximum: 10
+          description: Rating of the risk level associated with the idea (1-10 scale)
+          example: 5
+        "Overall_Rating":
+          type: integer
+          minimum: 1
+          maximum: 10
+          description: Overall rating of the idea (1-10 scale)
+          example: 7
         timestamp:
           type: string
           format: date-time
@@ -55,7 +103,7 @@ components:
         error:
           type: string
           description: Error message
-          example: "Missing 'idea' field in request body"
+          example: "Missing required fields in request body"
 
   securitySchemes:
     azureFunctionKey:
@@ -76,7 +124,8 @@ paths:
       operationId: addIdea
       summary: Add and analyze a new business idea
       description: |
-        Accepts a business idea, uses OpenAI's GPT-4o model to rate it (1-10) 
+        Accepts a business idea with three required fields (Idea_Overview, Deliverable, Motivation),
+        uses OpenAI's GPT-4o model to rate it on multiple criteria (1-10 scale) 
         and provide detailed analysis, then stores the results in the Google Spreadsheet.
       requestBody:
         required: true
@@ -88,7 +137,9 @@ paths:
               sample:
                 summary: Sample idea submission
                 value:
-                  idea: "A subscription service for personalized meal planning with AI-generated recipes"
+                  "Idea_Overview": "A subscription service for personalized meal planning with AI-generated recipes"
+                  "Deliverable": "A web and mobile app with AI recipe generation and meal planning features"
+                  "Motivation": "To help people eat healthier by providing personalized meal plans and recipes"
       responses:
         "200":
           description: Idea successfully added and analyzed
@@ -101,25 +152,32 @@ paths:
                   summary: Successful idea addition
                   value:
                     message: "Idea added successfully"
-                    idea: "A subscription service for personalized meal planning with AI-generated recipes"
-                    rating: 8
-                    notes: "This is a strong concept with clear market demand. The AI component adds significant value..."
+                    "Idea_Overview": "A subscription service for personalized meal planning with AI-generated recipes"
+                    "Deliverable": "A web and mobile app with AI recipe generation and meal planning features"
+                    "Motivation": "To help people eat healthier by providing personalized meal plans and recipes"
+                    "Analysis_Summary": "This is a strong concept with clear market demand. The AI component adds significant value..."
+                    "Novelty_Rating": 7
+                    "Feasibility_Rating": 8
+                    "Effort_Rating": 6
+                    "Impact_Rating": 8
+                    "Risk_Rating": 5
+                    "Overall_Rating": 7
                     timestamp: "2024-01-15T10:30:00.123456"
         "400":
-          description: Bad request - missing or invalid idea
+          description: Bad request - missing or invalid fields
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               examples:
-                missing_idea:
-                  summary: Missing idea field
+                missing_fields:
+                  summary: Missing required fields
                   value:
-                    error: "Missing 'idea' field in request body"
-                empty_idea:
-                  summary: Empty idea
+                    error: "Expected ['Idea_Overview', 'Deliverable', 'Motivation'], got ['idea']"
+                empty_field:
+                  summary: Empty field
                   value:
-                    error: "Idea cannot be empty"
+                    error: "Idea_Overview cannot be empty"
         "500":
           description: Internal server error
           content:
@@ -127,16 +185,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               examples:
+                analysis_failed:
+                  summary: Analysis failed
+                  value:
+                    error: "Analysis failed, empty fields: Analysis_Summary, Novelty_Rating"
                 server_error:
                   summary: Server error
                   value:
                     error: "Failed to add idea to spreadsheet"
 
   /api/read_sheet:
-    post:
+    get:
       operationId: getIdeaSheetData
-      summary: Returns the ideas data
-      description: Returns the ideas data without any input parameters.
+      summary: Returns the ideas data from Google Sheets
+      description: Returns all data from the Google Sheets spreadsheet containing the analyzed ideas.
       responses:
         "200":
           description: Successful fetch of sheet data
@@ -151,26 +213,26 @@ paths:
                       type: array
                       items:
                         type: object
-                        properties:
-                          Description of Idea:
-                            type: string
-                          Notes:
-                            type: string
-                          Rating:
-                            type: string
-                        required:
-                          - Description of Idea
-                          - Notes
-                          - Rating
+                        additionalProperties:
+                          type: string
+                        description: Dynamic object with column headers as keys and cell values as strings
               examples:
                 sample:
                   summary: Example response
                   value:
                     sheet_data:
-                      Ideas:
-                        - Description of Idea: "test"
-                          Notes: "- test notes"
-                          Rating: "3"
+                      Sheet1:
+                        - Time: "2024-01-15 10:30:00"
+                          "Idea_Overview": "A mobile app for fitness class booking"
+                          "Deliverable": "Mobile application with booking system"
+                          "Motivation": "Solve fitness class discovery problem"
+                          "Analysis_Summary": "Promising idea with good market potential"
+                          "Novelty_Rating": "7"
+                          "Feasibility_Rating": "8"
+                          "Effort_Rating": "6"
+                          "Impact_Rating": "8"
+                          "Risk_Rating": "5"
+                          "Overall_Rating": "7"
         "500":
           description: Error processing request
           content:
@@ -182,3 +244,41 @@ paths:
                   summary: Sample error
                   value:
                     error: "Invalid credentials or spreadsheet ID"
+
+  /api/get_instructions:
+    get:
+      operationId: getInstructions
+      summary: Get system instructions for the GPT bot
+      description: |
+        Returns the system message/instructions that define the role and behavior
+        of the GPT bot for analyzing business ideas. This endpoint is used to
+        understand what information the bot needs to collect from users.
+      security: []  # No authentication required (anonymous access)
+      responses:
+        "200":
+          description: Instructions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  instructions:
+                    type: string
+                    description: The system message/instructions for the GPT bot
+                    example: "You are an expert business analyst who evaluates startup ideas and business opportunities."
+              examples:
+                success:
+                  summary: Successful instructions retrieval
+                  value:
+                    instructions: "You are an expert business analyst who evaluates startup ideas and business opportunities. Your job is to ask the user for and confirm the values of the following pieces of information: Idea_Overview, Deliverable, Motivation"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                server_error:
+                  summary: Server error
+                  value:
+                    error: "Failed to retrieve instructions"
