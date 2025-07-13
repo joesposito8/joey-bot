@@ -45,9 +45,9 @@ def analyze_idea_with_openai(user_input: IdeaGuyUserInput) -> IdeaGuyBotOutput:
         # Try to parse as JSON
         try:
             result = json.loads(content)
-            if any(column not in result for column in IdeaGuyBotOutput.columns):
+            if any(column not in result for column in IdeaGuyBotOutput.columns.keys()):
                 raise ValueError(
-                    f"OpenAI response missing required fields. Expected {IdeaGuyBotOutput.columns} fields. Received: {content}"
+                    f"OpenAI response missing required fields. Expected {IdeaGuyBotOutput.columns.keys()} fields. Received: {content}"
                 )
             return IdeaGuyBotOutput(data=result)
         except json.JSONDecodeError:
@@ -61,10 +61,11 @@ def analyze_idea_with_openai(user_input: IdeaGuyUserInput) -> IdeaGuyBotOutput:
                         json_content = content[start:end].strip()
                         result = json.loads(json_content)
                         if any(
-                            column not in result for column in IdeaGuyBotOutput.columns
+                            column not in result
+                            for column in IdeaGuyBotOutput.columns.keys()
                         ):
                             raise ValueError(
-                                f"OpenAI response missing required fields. Expected {IdeaGuyBotOutput.columns} fields. Received: {content}"
+                                f"OpenAI response missing required fields. Expected {IdeaGuyBotOutput.columns.keys()} fields. Received: {content}"
                             )
                         return IdeaGuyBotOutput(data=result)
                 except (json.JSONDecodeError, ValueError):
@@ -108,12 +109,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         req_body = req.get_json()
 
         if not req_body or any(
-            column not in req_body for column in IdeaGuyUserInput.columns
+            column not in req_body for column in IdeaGuyUserInput.columns.keys()
         ):
             return func.HttpResponse(
                 json.dumps(
                     {
-                        "error": f"Expected {IdeaGuyUserInput.columns}, got {list(req_body.keys())}"
+                        "error": f"Expected {IdeaGuyUserInput.columns.keys()}, got {list(req_body.keys())}"
                     }
                 ),
                 mimetype="application/json",
@@ -122,7 +123,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         user_input = IdeaGuyUserInput(req_body)
 
-        for column in user_input.columns:
+        for column in user_input.columns.keys():
             if not user_input.content[column] or not user_input.content[column].strip():
                 return func.HttpResponse(
                     json.dumps({"error": f"{column} cannot be empty"}),
@@ -134,7 +135,8 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         # Check if the analysis failed
         if any(
-            bot_output.content[column] is None for column in IdeaGuyBotOutput.columns
+            bot_output.content[column] is None
+            for column in IdeaGuyBotOutput.columns.keys()
         ):
             return func.HttpResponse(
                 json.dumps(
@@ -142,7 +144,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                         "error": "Analysis failed, empty fields: "
                         + ", ".join(
                             column
-                            for column in IdeaGuyBotOutput.columns
+                            for column in IdeaGuyBotOutput.columns.keys()
                             if bot_output.content[column] is None
                         ),
                         "timestamp": datetime.datetime.now().isoformat(),

@@ -1,6 +1,6 @@
 import os
 import logging
-from typing import Optional, List, Dict
+from typing import Optional, Dict
 from dataclasses import dataclass
 
 import gspread
@@ -10,16 +10,16 @@ from openai import OpenAI
 
 @dataclass
 class Information:
-    columns: List[str]
+    columns: Dict[str, str]
 
     def __init__(self, data: Optional[Dict[str, str]] = None):
         if data is None:
-            self.content = {column: "" for column in self.columns}
+            self.content = {column: "" for column in self.columns.keys()}
         else:
-            for column in self.columns:
+            for column in self.columns.keys():
                 if column not in data:
                     raise ValueError(f"Missing {column} in data")
-            self.content = {column: data[column] for column in self.columns}
+            self.content = {column: data[column] for column in self.columns.keys()}
 
 
 def get_openai_client(api_key: Optional[str] = None) -> OpenAI:
