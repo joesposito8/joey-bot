@@ -10,12 +10,13 @@ from common import (
     get_spreadsheet,
 )
 from common.idea_guy import (
+    IDEA_ANALYSIS_MODEL,
     IdeaGuyBotOutput,
     IdeaGuyUserInput,
     get_idea_analysis_prompt,
 )
 
-# Initialize clients
+
 spreadsheet_id: str = os.getenv("IDEA_GUY_SHEET_ID", "")
 client = get_openai_client()
 gc = get_google_sheets_client()
@@ -27,7 +28,7 @@ def analyze_idea_with_openai(user_input: IdeaGuyUserInput) -> IdeaGuyBotOutput:
 
     try:
         response = client.chat.completions.create(
-            model="o4-mini",
+            model=IDEA_ANALYSIS_MODEL,
             messages=[
                 {"role": "user", "content": prompt},
             ],

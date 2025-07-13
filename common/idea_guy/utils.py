@@ -1,6 +1,9 @@
 from common.utils import Information
 
 
+IDEA_ANALYSIS_MODEL = "o4-mini-deep-research"
+
+
 class IdeaGuyUserInput(Information):
     columns = {
         "Idea_Overview": "An overview of the idea being evaluated.",
