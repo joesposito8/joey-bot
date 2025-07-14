@@ -9,7 +9,15 @@
             "methods": [
                 "get"
             ],
-            "route": "read_sheet"
+            "route": "read_sheet",
+            "queryParameters": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "required": false,
+                    "description": "Optional ID to filter results by column A. If provided, only returns the row where column A matches this ID."
+                }
+            ]
         },
         {
             "type": "http",

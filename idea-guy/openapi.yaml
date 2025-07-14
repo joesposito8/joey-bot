@@ -233,7 +233,18 @@ paths:
     get:
       operationId: getIdeaSheetData
       summary: Returns the ideas data from Google Sheets
-      description: Returns all data from the Google Sheets spreadsheet containing the analyzed ideas.
+      description: |
+        Returns data from the Google Sheets spreadsheet containing the analyzed ideas.
+        If an 'id' query parameter is provided, only returns the row where column A matches the specified ID.
+        If no 'id' is provided, returns all data from all worksheets.
+      parameters:
+        - name: id
+          in: query
+          description: Optional ID to filter results by column A. If provided, only returns the row where column A matches this ID.
+          required: false
+          schema:
+            type: string
+          example: "123"
       responses:
         "200":
           description: Successful fetch of sheet data
@@ -275,6 +286,17 @@ paths:
                           "Overall_Rationale": "Balancing the strong feasibility and impact scores against moderate novelty and risk"
                           "Analysis_Summary": "Promising idea with good market potential"
                           "Potential_Improvements": "Consider adding AI-powered personalization features to differentiate from existing competitors"
+        "404":
+          description: No matching row found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                not_found:
+                  summary: No matching row found
+                  value:
+                    error: "No row found with id '123' in worksheet 'Sheet1'"
         "500":
           description: Error processing request
           content:
