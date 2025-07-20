@@ -1,8 +1,10 @@
 .keys
 .venv
 .env
+.prompts
 
 env.sh
+prompts.sh
 local.settings.json
 __pycache__
 .python_packages

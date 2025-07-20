@@ -1,6 +1,8 @@
 import os
+import re
+import json
 import logging
-from typing import Optional, Dict
+from typing import List, Optional, Dict
 from dataclasses import dataclass
 
 import gspread
@@ -70,3 +72,107 @@ def get_spreadsheet(
     except Exception as e:
         logging.error(f"Failed to open spreadsheet {spreadsheet_id}: {str(e)}")
         raise
+
+
+def validate_analysis_result(parsed_json: dict, expected_fields: List[str]):
+    actual_fields = list(parsed_json.keys())
+
+    if actual_fields != expected_fields:
+        raise ValueError(
+            f"Analysis result validation failed: expected {expected_fields} but got {actual_fields}"
+        )
+
+
+def extract_json_from_text(text: str, expected_output: Information) -> dict | None:
+    # Strategy 1: Look for JSON wrapped in ```json ... ``` blocks
+    json_block_pattern = r'```json\s*(\{.*?\})\s*```'
+    json_block_match = re.search(json_block_pattern, text, re.DOTALL | re.IGNORECASE)
+    if json_block_match:
+        try:
+            parsed = json.loads(json_block_match.group(1))
+            validate_analysis_result(parsed, list(expected_output.columns.keys()))
+            return parsed
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    # Strategy 2: Look for JSON wrapped in ``` ... ``` blocks (without json specifier)
+    block_pattern = r'```\s*(\{.*?\})\s*```'
+    block_match = re.search(block_pattern, text, re.DOTALL)
+    if block_match:
+        try:
+            parsed = json.loads(block_match.group(1))
+            validate_analysis_result(parsed, list(expected_output.columns.keys()))
+            return parsed
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    # Strategy 3: Handle escaped JSON strings (like the example you provided)
+    # Look for patterns like ```json\n{...}\n``` or similar escaped formats
+    escaped_json_pattern = r'```json\\n\s*(\{.*?\})\s*\\n```'
+    escaped_match = re.search(escaped_json_pattern, text, re.DOTALL | re.IGNORECASE)
+    if escaped_match:
+        try:
+            # The captured group contains the escaped JSON, so we need to unescape it
+            escaped_json = escaped_match.group(1)
+            # Unescape common escape sequences
+            unescaped_json = (
+                escaped_json.replace('\\n', '\n')
+                .replace('\\"', '"')
+                .replace('\\t', '\t')
+            )
+            parsed = json.loads(unescaped_json)
+            validate_analysis_result(parsed, list(expected_output.columns.keys()))
+            return parsed
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    # Strategy 4: Look for any JSON object in the text (improved pattern)
+    # This pattern is more flexible and handles nested objects better
+    json_pattern = r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}'
+    json_matches = re.findall(json_pattern, text, re.DOTALL)
+
+    # Try each potential JSON match, starting with the longest (most complete)
+    for json_str in sorted(json_matches, key=len, reverse=True):
+        try:
+            # Clean up common issues
+            cleaned_json = json_str.strip()
+            # Remove any trailing commas before closing braces
+            cleaned_json = re.sub(r',(\s*[}\]])', r'\1', cleaned_json)
+            # Try to unescape if it looks like escaped JSON
+            if '\\n' in cleaned_json or '\\"' in cleaned_json:
+                cleaned_json = (
+                    cleaned_json.replace('\\n', '\n')
+                    .replace('\\"', '"')
+                    .replace('\\t', '\t')
+                )
+            parsed = json.loads(cleaned_json)
+            validate_analysis_result(parsed, list(expected_output.columns.keys()))
+            return parsed
+        except (json.JSONDecodeError, ValueError):
+            continue
+
+    # Strategy 5: Try to extract key-value pairs and construct a dict
+    try:
+        # Look for patterns like "Key": value or Key: value
+        kv_pattern = r'"?([A-Za-z_][A-Za-z0-9_]*)"?\s*:\s*"?([^",\n\r}]+)"?'
+        kv_matches = re.findall(kv_pattern, text)
+        if kv_matches:
+            result = {}
+            for key, value in kv_matches:
+                # Clean up the value
+                value = value.strip().strip('"\'')
+                # Try to convert numeric values
+                try:
+                    if '.' in value:
+                        result[key] = float(value)
+                    else:
+                        result[key] = int(value)
+                except ValueError:
+                    result[key] = value
+            if result:
+                validate_analysis_result(result, list(expected_output.columns.keys()))
+                return result
+    except Exception:
+        pass
+
+    return None

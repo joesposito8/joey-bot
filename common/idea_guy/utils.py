@@ -2,6 +2,9 @@ from common.utils import Information
 
 
 IDEA_ANALYSIS_MODEL = "o4-mini-deep-research"
+ID_COLUMN_INDEX = 0
+HEADER_ROW_INDEX = 1
+FIRST_VALUE_ROW_INDEX = 2
 
 
 class IdeaGuyUserInput(Information):
@@ -49,7 +52,7 @@ def get_idea_analysis_prompt(user_input: IdeaGuyUserInput) -> str:
     )
 
     bot_output_str = "\n".join(
-        f"{column}: <{description}>"
+        f"{column}: {description}"
         for column, description in IdeaGuyBotOutput.columns.items()
     )
 
