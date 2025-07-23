@@ -1,10 +1,6 @@
 from common.utils import Information
 
 
-IDEA_ANALYSIS_MODEL = "o4-mini-deep-research"
-ID_COLUMN_INDEX = 0
-HEADER_ROW_INDEX = 1
-FIRST_VALUE_ROW_INDEX = 2
 
 
 class IdeaGuyUserInput(Information):
@@ -41,11 +37,20 @@ class IdeaGuyBotOutput(Information):
         "Overall_Rationale": "A paragraph explaining how you combined the individual scores and why you chose this aggregate.",
         "Analysis_Summary": "A detailed analysis of the idea."
         "Include any market data, competitor URLs, cost benchmarks, or user-research insights you uncovered.",
+        "Expected_Value_Analysis": "A comprehensive financial analysis section including: (1) Revenue projections for Years 1-5 with specific dollar amounts, (2) Probability-weighted scenarios (optimistic/realistic/pessimistic) with percentage likelihoods, (3) Comparable company valuation multiples and exit scenarios, (4) Expected return calculations for investors including IRR and multiple expectations, (5) DCF analysis or similar valuation framework with key assumptions clearly stated.",
         "Potential_Improvements": "A paragraph explaining how you could improve the idea to address its core deficiencies. Keep these limited to changes that affect the core idea, rather than implementation details or next steps.",
     }
 
 
 def get_idea_analysis_prompt(user_input: IdeaGuyUserInput) -> str:
+    """Generate detailed VC-style analysis prompt for business idea evaluation.
+    
+    Args:
+        user_input: User's business idea input with overview, deliverable, and motivation
+        
+    Returns:
+        Formatted prompt string for OpenAI analysis
+    """
     user_input_str = "\n".join(
         f"{column}: {user_input.content[column]}"
         for column in user_input.columns.keys()
@@ -108,6 +113,11 @@ def get_idea_analysis_prompt(user_input: IdeaGuyUserInput) -> str:
 
 
 def get_system_message() -> str:
+    """Generate system instructions for ChatGPT bot workflow.
+    
+    Returns:
+        System message string with workflow instructions
+    """
     user_input_columns_str = "\n".join(
         f"{column}: {description}"
         for column, description in IdeaGuyUserInput.columns.items()
@@ -120,6 +130,10 @@ def get_system_message() -> str:
 
     For each piece of information, devote a turn in the conversation to ask the user follow-up questions to clarify their answer. Then, repeat the information back to the user to confirm that you have it correct. Do this for each piece of information before you move on to the next one.
     
-    Once you have all the information, you will then send that information to an endpoint to be analyzed.
+    Once you have all the information, follow this workflow:
+    1. Send the information to /api/get_pricepoints to get budget options
+    2. Present the user with the budget tiers and ask them to select one
+    3. Send the selected budget tier to /api/execute_analysis to start the analysis
+    4. Provide the user with the job_id to poll /api/process_idea for results
     
-    IMPORTANT! Only send the information to the add_idea endpoint once you have summarized the information you have received from the user back to the user and they have cleared you to send it."""
+    IMPORTANT! Only proceed to step 1 after you have summarized all the information back to the user and they have confirmed it's correct."""

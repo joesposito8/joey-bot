@@ -115,6 +115,10 @@ components:
           type: string
           description: A detailed analysis of the idea including market data, competitor URLs, cost benchmarks, or user-research insights
           example: "This is a promising idea with good market potential. The fitness industry is growing rapidly, etc."
+        "Expected_Value_Analysis":
+          type: string
+          description: A comprehensive financial analysis section including revenue projections for Years 1-5, probability-weighted scenarios, comparable company valuations, expected investor returns, and DCF analysis
+          example: "Financial projections show $2M Year 1 revenue growing to $15M by Year 5. Optimistic scenario (30% probability) reaches 2x targets. Comparable SaaS companies trade at 8-12x revenue multiples, suggesting $120M+ exit value. Expected investor IRR of 35-45% over 5-year horizon with DCF NPV of $85M at 12% discount rate."
         "Potential_Improvements":
           type: string
           description: A paragraph explaining how the idea could be improved to address its core deficiencies
@@ -158,10 +162,12 @@ paths:
         1. Call with action="get_budget_options" to see available tiers
         2. Call with action="execute" and selected budget_tier to run analysis
         
-        Budget tiers available:
-        - basic: Quick analysis ($0.10 max, gpt-4o-mini, 5-10 min)
-        - standard: Detailed analysis ($0.50 max, o1-mini, 15-20 min) 
-        - premium: Deep research ($2.00 max, o4-mini-deep-research, 20-30 min)
+        Multi-call architecture with financial focus:
+        - basic: Single-call analysis ($1.00, o4-mini-deep-research, 5-10 min)
+        - standard: Triple-call analysis ($3.00, o4-mini-deep-research, 15-20 min) 
+        - premium: Five-call analysis ($5.00, o4-mini-deep-research, 20-30 min)
+        
+        All tiers include Expected Value Analysis with revenue projections, DCF modeling, and probability-weighted scenarios.
       requestBody:
         required: true
         content:
@@ -241,10 +247,10 @@ paths:
                               example: "Deep Research Analysis"
                             max_cost:
                               type: number
-                              example: 2.00
+                              example: 5.00
                             estimated_cost:
                               type: number
-                              example: 0.0016
+                              example: 5.00
                             model:
                               type: string
                               example: "o4-mini-deep-research"
@@ -330,20 +336,20 @@ paths:
                     action: "budget_options"
                     budget_options:
                       - level: "basic"
-                        name: "Quick Analysis"
-                        max_cost: 0.10
-                        estimated_cost: 0.0000
-                        model: "gpt-4o-mini"
-                        description: "Fast basic evaluation with core metrics"
-                        deliverables: ["Basic ratings", "Short rationales", "Simple assessment"]
+                        name: "Single-Call Analysis"
+                        max_cost: 1.00
+                        estimated_cost: 1.00
+                        model: "o4-mini-deep-research"
+                        description: "1 optimized call with intelligent architecture planning"
+                        deliverables: ["Comprehensive ratings with detailed analysis", "Expected Value Analysis with financial projections", "Market analysis with DCF modeling"]
                         time_estimate: "5-10 minutes"
                       - level: "standard"
-                        name: "Detailed Analysis"
-                        max_cost: 0.50
-                        estimated_cost: 0.0004
-                        model: "o1-mini"
-                        description: "Comprehensive evaluation with market research"
-                        deliverables: ["Detailed ratings", "Competitor analysis", "Market size analysis"]
+                        name: "Triple-Call Analysis"
+                        max_cost: 3.00
+                        estimated_cost: 3.00
+                        model: "o4-mini-deep-research"
+                        description: "3 coordinated calls with intelligent architecture planning"
+                        deliverables: ["Specialized market research", "Dedicated financial modeling", "Synthesis with probability-weighted scenarios"]
                         time_estimate: "15-20 minutes"
                     user_input:
                       "Idea_Overview": "A subscription service for personalized meal planning"
@@ -390,87 +396,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /api/add_idea:
-    post:
-      operationId: addIdea
-      summary: Add and analyze a new business idea
-      description: |
-        Accepts a business idea with three required fields (Idea_Overview, Deliverable, Motivation),
-        uses OpenAI's GPT-4o model to rate it on multiple criteria (1-10 scale) 
-        and provide detailed analysis, then stores the results in the Google Spreadsheet.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/IdeaRequest'
-            examples:
-              sample:
-                summary: Sample idea submission
-                value:
-                  "Idea_Overview": "A subscription service for personalized meal planning with AI-generated recipes"
-                  "Deliverable": "A web and mobile app with AI recipe generation and meal planning features"
-                  "Motivation": "To help people eat healthier by providing personalized meal plans and recipes"
-      responses:
-        "200":
-          description: Idea successfully added and analyzed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/IdeaResponse'
-              examples:
-                success:
-                  summary: Successful idea addition
-                  value:
-                    message: "Idea added successfully"
-                    "Idea_Overview": "A subscription service for personalized meal planning with AI-generated recipes"
-                    "Deliverable": "A web and mobile app with AI recipe generation and meal planning features"
-                    "Motivation": "To help people eat healthier by providing personalized meal plans and recipes"
-                    "Novelty_Rating": 7
-                    "Novelty_Rationale": "This idea shows moderate novelty with AI-powered personalization, though similar services exist in the market."
-                    "Feasibility_Rating": 8
-                    "Feasibility_Rationale": "The technology stack is mature with proven AI frameworks and mobile development tools available."
-                    "Effort_Rating": 6
-                    "Effort_Rationale": "This project would require approximately 3-6 months with a team of 3-4 developers and AI specialists."
-                    "Impact_Rating": 8
-                    "Impact_Rationale": "The meal planning market is valued at $11.6B globally with strong growth in health-conscious consumers."
-                    "Risk_Rating": 5
-                    "Risk_Rationale": "Moderate risk due to competitive landscape and potential challenges in AI recipe generation accuracy."
-                    "Overall_Rating": 7
-                    "Overall_Rationale": "Balancing the strong feasibility and impact scores against moderate novelty and risk considerations."
-                    "Analysis_Summary": "This is a strong concept with clear market demand. The AI component adds significant value, etc."
-                    "Potential_Improvements": "Consider adding nutritional analysis and integration with grocery delivery services to enhance value proposition."
-                    timestamp: "2024-01-15T10:30:00.123456"
-        "400":
-          description: Bad request - missing or invalid fields
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              examples:
-                missing_fields:
-                  summary: Missing required fields
-                  value:
-                    error: "Expected ['Idea_Overview', 'Deliverable', 'Motivation'], got ['idea']"
-                empty_field:
-                  summary: Empty field
-                  value:
-                    error: "Idea_Overview cannot be empty"
-        "500":
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              examples:
-                analysis_failed:
-                  summary: Analysis failed
-                  value:
-                    error: "Analysis failed, empty fields: Analysis_Summary, Novelty_Rating"
-                server_error:
-                  summary: Server error
-                  value:
-                    error: "Failed to add idea to spreadsheet"
 
   /api/read_sheet:
     get:
@@ -690,6 +615,10 @@ paths:
                     type: string
                     description: A detailed analysis of the idea including market data, competitor URLs, cost benchmarks, or user-research insights
                     example: "This is a promising idea with good market potential. The fitness industry is growing rapidly"
+                  "Expected_Value_Analysis":
+                    type: string
+                    description: Comprehensive financial analysis with revenue projections, probability scenarios, and DCF modeling
+                    example: "Revenue projections: Year 1 $2M, Year 5 $15M. Optimistic scenario (30% probability) 2x baseline. SaaS comparables 8-12x revenue multiples suggest $120M+ exit. Expected IRR 35-45%, DCF NPV $85M at 12% discount."
                   "Potential_Improvements":
                     type: string
                     description: A paragraph explaining how the idea could be improved to address its core deficiencies
@@ -719,6 +648,7 @@ paths:
                     "Overall_Rating": 7
                     "Overall_Rationale": "Balancing the strong feasibility and impact scores against moderate novelty and risk"
                     "Analysis_Summary": "This is a promising idea with good market potential. The fitness industry is growing rapidly"
+                    "Expected_Value_Analysis": "Revenue projections: Year 1 $2M, Year 5 $15M. Optimistic scenario (30% probability) 2x baseline. SaaS comparables 8-12x revenue multiples suggest $120M+ exit. Expected IRR 35-45%, DCF NPV $85M at 12% discount."
                     "Potential_Improvements": "Consider adding AI-powered personalization features to differentiate from existing competitors"
                     timestamp: "2024-01-15T10:30:00.123456"
         "202":

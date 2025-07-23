@@ -8,22 +8,83 @@ import os
 from common import get_openai_client, get_google_sheets_client, get_spreadsheet
 from common.idea_guy.utils import IdeaGuyUserInput
 from common.utils import extract_json_from_text
-from common.idea_guy import IdeaGuyBotOutput, ID_COLUMN_INDEX
+from common.idea_guy import IdeaGuyBotOutput
+from common.http_utils import build_json_response, log_and_return_error, is_testing_mode
+from common.cost_tracker import log_openai_cost, calculate_cost_from_usage
+
+ID_COLUMN_INDEX = 0
 
 
-spreadsheet_id: str = os.getenv("IDEA_GUY_SHEET_ID", "")
-client = get_openai_client()
-gc = get_google_sheets_client()
-spreadsheet = get_spreadsheet(spreadsheet_id, gc)
+# Lazy initialization to prevent import-time dependencies
+_client = None
+_gc = None
+_spreadsheet = None
+
+def get_lazy_client():
+    """Get lazily initialized OpenAI client."""
+    global _client
+    if _client is None:
+        _client = get_openai_client()
+    return _client
+
+def get_lazy_sheets_client():
+    """Get lazily initialized Google Sheets client.""" 
+    global _gc
+    if _gc is None:
+        _gc = get_google_sheets_client()
+    return _gc
+
+def get_lazy_spreadsheet():
+    """Get lazily initialized spreadsheet."""
+    global _spreadsheet
+    if _spreadsheet is None:
+        spreadsheet_id = os.getenv("IDEA_GUY_SHEET_ID", "")
+        if not spreadsheet_id:
+            raise ValueError("IDEA_GUY_SHEET_ID environment variable is required")
+        _spreadsheet = get_spreadsheet(spreadsheet_id, get_lazy_sheets_client())
+    return _spreadsheet
 
 
 def get_idea_analysis_result(job_id: str) -> Dict[str, str] | None:
     try:
         # Get the response using the job ID
+        client = get_lazy_client()
         response = client.responses.retrieve(job_id)
 
         # Check if the response is ready
         if response.status == "completed":
+            # Log actual API costs when job completes
+            try:
+                if hasattr(response, 'usage') and response.usage and not is_testing_mode():
+                    # Extract usage data from completed response
+                    usage_data = {
+                        "prompt_tokens": getattr(response.usage, 'prompt_tokens', 0),
+                        "completion_tokens": getattr(response.usage, 'completion_tokens', 0), 
+                        "total_tokens": getattr(response.usage, 'total_tokens', 0)
+                    }
+                    
+                    # Calculate actual cost
+                    model = getattr(response, 'model', 'unknown')
+                    actual_cost = calculate_cost_from_usage(model, usage_data)
+                    
+                    # Log actual cost (overrides previous estimate)
+                    log_openai_cost(
+                        endpoint="process_idea_completion",
+                        model=model,
+                        budget_tier="unknown",  # Would need to pass this from job creation
+                        job_id=job_id,
+                        usage_data=usage_data,
+                        cost_usd=actual_cost,
+                        user_input={"summary": "Analysis completion - see execute_analysis for details"},
+                        estimated=False,  # This is actual usage
+                        completion_status="completed"
+                    )
+                    
+                    logging.info(f"💰 Actual API cost logged for job {job_id}: ${actual_cost:.4f}")
+                    
+            except Exception as e:
+                logging.warning(f"Failed to log actual API cost for job {job_id}: {str(e)}")
+            
             # Extract the content from the response
             if hasattr(response, 'output') and response.output:
                 # Convert response to string and extract JSON
@@ -59,6 +120,7 @@ def get_idea_analysis_result(job_id: str) -> Dict[str, str] | None:
 
 def add_bot_output_to_sheet(job_id: str, result: Dict[str, str]):
     try:
+        spreadsheet = get_lazy_spreadsheet()
         worksheet = spreadsheet.get_worksheet(0)
 
         cell = worksheet.find(job_id)
@@ -88,14 +150,43 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         job_id = req.params.get('id')
 
         if not job_id:
-            return func.HttpResponse(
-                json.dumps({"error": "Missing 'id' query parameter"}),
-                mimetype="application/json",
+            return log_and_return_error(
+                message="Missing 'id' query parameter. Please provide the job ID to check analysis status.",
                 status_code=400,
+                error_type="missing_job_id",
+                context={"endpoint": "process_idea"}
             )
 
+        # Check for mock job (testing mode)
+        if job_id.startswith("mock_"):
+            logging.info(f"Processing mock job: {job_id}")
+            return build_json_response({
+                "status": "completed",
+                "message": "[TESTING MODE] Mock analysis completed",
+                "job_id": job_id,
+                "testing_mode": True,
+                "note": "This is a mock response for testing - no actual analysis was performed",
+                "mock_results": {
+                    "Novelty_Rating": "7",
+                    "Novelty_Rationale": "Mock analysis - this would contain actual evaluation in production",
+                    "Overall_Rating": "7",
+                    "Analysis_Summary": "This is a mock analysis result for testing purposes"
+                },
+                "timestamp": datetime.datetime.now().isoformat(),
+            })
+        
         # Try to get the analysis result
-        result = get_idea_analysis_result(job_id)
+        try:
+            result = get_idea_analysis_result(job_id)
+            logging.info(f"Retrieved analysis result for job {job_id}: {result is not None}")
+        except Exception as e:
+            return log_and_return_error(
+                message=f"Failed to retrieve analysis result: {str(e)}",
+                status_code=500,
+                error_type="result_retrieval_error",
+                context={"endpoint": "process_idea", "job_id": job_id},
+                exception=e
+            )
 
         if result is None:
             # Analysis is not ready yet
@@ -105,23 +196,20 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 "job_id": job_id,
                 "timestamp": datetime.datetime.now().isoformat(),
             }
-
-            return func.HttpResponse(
-                json.dumps(response_data),
-                mimetype="application/json",
-                status_code=202,  # Accepted but not completed
-            )
+            
+            logging.info(f"Job {job_id} still processing")
+            return build_json_response(response_data, 202)
 
         try:
             add_bot_output_to_sheet(job_id, result)
+            logging.info(f"Successfully added analysis results to spreadsheet for job {job_id}")
         except ValueError as e:
-            logging.error(f"Error adding idea to sheet: {str(e)}")
-            return func.HttpResponse(
-                json.dumps(
-                    {"error": f"Failed to add idea to spreadsheet, because of {e}"}
-                ),
-                mimetype="application/json",
+            return log_and_return_error(
+                message=f"Analysis completed but failed to save to spreadsheet: {str(e)}",
                 status_code=500,
+                error_type="spreadsheet_save_error",
+                context={"endpoint": "process_idea", "job_id": job_id},
+                exception=e
             )
 
         # Analysis is ready
@@ -132,39 +220,38 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             **result,
             "timestamp": datetime.datetime.now().isoformat(),
         }
-
-        return func.HttpResponse(
-            json.dumps(response_data),
-            mimetype="application/json",
-            status_code=200,
-        )
+        
+        logging.info(f"Successfully completed analysis for job {job_id}")
+        return build_json_response(response_data)
 
     except ValueError as e:
         # Handle specific errors like missing job ID, analysis failures, or validation errors
         error_message = str(e)
         if "validation failed" in error_message.lower():
-            # For validation errors, provide more detailed information
-            return func.HttpResponse(
-                json.dumps(
-                    {
-                        "error": error_message,
-                        "type": "validation_error",
-                        "expected_fields": list(IdeaGuyBotOutput.columns.keys()),
-                    }
-                ),
-                mimetype="application/json",
-                status_code=422,  # Unprocessable Entity for validation errors
+            return log_and_return_error(
+                message=f"Analysis output validation failed: {error_message}",
+                status_code=422,
+                error_type="output_validation_error",
+                context={
+                    "endpoint": "process_idea",
+                    "job_id": job_id,
+                    "expected_fields": list(IdeaGuyBotOutput.columns.keys())
+                },
+                exception=e
             )
         else:
-            return func.HttpResponse(
-                json.dumps({"error": error_message}),
-                mimetype="application/json",
+            return log_and_return_error(
+                message=error_message,
                 status_code=400,
+                error_type="processing_error",
+                context={"endpoint": "process_idea", "job_id": job_id},
+                exception=e
             )
     except Exception as e:
-        logging.error(f"Error processing request: {str(e)}")
-        return func.HttpResponse(
-            json.dumps({"error": "Internal server error"}),
-            mimetype="application/json",
+        return log_and_return_error(
+            message="An unexpected error occurred while processing your analysis. Please contact support.",
             status_code=500,
+            error_type="server_error",
+            context={"endpoint": "process_idea", "job_id": job_id},
+            exception=e
         )

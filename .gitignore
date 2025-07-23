@@ -10,3 +10,9 @@ __pycache__
 .python_packages
 
 *.egg-info/
+
+# Cost tracking logs (sensitive financial data)
+api_costs.log
+cost_tracking.log
+openai_costs.log
+*.cost.log
