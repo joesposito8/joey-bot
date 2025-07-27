@@ -1,17 +1,14 @@
 """Extensible agent service layer for universal AI agent workflow."""
 import datetime
-import json
 import logging
 import uuid
-import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 from common import get_openai_client, get_google_sheets_client, get_spreadsheet
 from common.budget_config import BudgetConfigManager, TierConfig
 from common.config import AgentDefinition, FullAgentConfig
 from pathlib import Path
 from common.http_utils import is_testing_mode
-from common.cost_tracker import log_openai_cost, calculate_cost_from_usage
 from common.multi_call_architecture import create_multi_call_analysis
 
 
@@ -211,7 +208,6 @@ class AnalysisService:
         except Exception as e:
             logging.error(f"Error creating spreadsheet record: {str(e)}")
             raise ValidationError(f"Failed to create spreadsheet record: {str(e)}")
-    
     
     def _estimate_usage_for_tier(self, tier_config: TierConfig) -> Dict[str, Any]:
         """Estimate token usage based on tier configuration.

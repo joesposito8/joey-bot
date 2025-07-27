@@ -4,7 +4,7 @@ import os
 
 from common.http_utils import (
     build_json_response, build_error_response, validate_json_request,
-    log_and_return_error, is_testing_mode
+    log_and_return_error
 )
 from common.agent_service import AnalysisService, ValidationError
 

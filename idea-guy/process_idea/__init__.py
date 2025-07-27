@@ -1,14 +1,13 @@
 from typing import Dict
 import azure.functions as func
 import datetime
-import json
 import logging
 import os
 
 from common import get_openai_client, get_google_sheets_client, get_spreadsheet
 from common.agent_service import AnalysisService
 from common.utils import extract_json_from_text
-from common.http_utils import build_json_response, build_error_response, is_testing_mode
+from common.http_utils import build_json_response, build_error_response, is_testing_mode, log_and_return_error
 from common.cost_tracker import log_openai_cost, calculate_cost_from_usage
 
 ID_COLUMN_INDEX = 0
@@ -19,6 +18,7 @@ _client = None
 _gc = None
 _spreadsheet = None
 
+
 def get_lazy_client():
     """Get lazily initialized OpenAI client."""
     global _client
@@ -26,12 +26,14 @@ def get_lazy_client():
         _client = get_openai_client()
     return _client
 
+
 def get_lazy_sheets_client():
     """Get lazily initialized Google Sheets client.""" 
     global _gc
     if _gc is None:
         _gc = get_google_sheets_client()
     return _gc
+
 
 def get_lazy_spreadsheet():
     """Get lazily initialized spreadsheet."""

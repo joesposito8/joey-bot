@@ -61,7 +61,5 @@ def load_agent_definition(yaml_path: Path) -> AgentDefinition:
     # Validate agent_id format
     _validate_agent_id(data['agent_id'])
     
-    # TODO: Add validation for budget_tiers format
-    budget_tiers = data.get('budget_tiers', [])
-    
+    # Budget tier validation happens in AgentDefinition.from_dict()
     return AgentDefinition.from_dict(data)

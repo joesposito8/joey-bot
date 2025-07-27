@@ -2,8 +2,6 @@
 Google Sheet schema reader for dynamic agent configuration.
 """
 
-import re
-from typing import List
 from .models import SheetSchema, FieldConfig
 
 
