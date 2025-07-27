@@ -1,4 +1,4 @@
-"""Extensible agent service layer for business analysis workflow."""
+"""Extensible agent service layer for universal AI agent workflow."""
 import datetime
 import json
 import logging
@@ -8,7 +8,8 @@ from typing import Dict, Any, Optional
 
 from common import get_openai_client, get_google_sheets_client, get_spreadsheet
 from common.budget_config import BudgetConfigManager, TierConfig
-from common.idea_guy.utils import IdeaGuyUserInput, get_idea_analysis_prompt
+from common.config import AgentDefinition, FullAgentConfig
+from pathlib import Path
 from common.http_utils import is_testing_mode
 from common.cost_tracker import log_openai_cost, calculate_cost_from_usage
 from common.multi_call_architecture import create_multi_call_analysis
@@ -20,10 +21,10 @@ class ValidationError(Exception):
 
 
 class AnalysisService:
-    """Service for managing business idea analysis workflow."""
+    """Service for managing universal AI agent analysis workflow."""
     
     def __init__(self, spreadsheet_id: str):
-        """Initialize analysis service.
+        """Initialize analysis service with dynamic agent configuration.
         
         Args:
             spreadsheet_id: Google Sheets spreadsheet ID
@@ -33,6 +34,7 @@ class AnalysisService:
         self._openai_client = None
         self._sheets_client = None
         self._spreadsheet = None
+        self._agent_config = None
     
     @property
     def openai_client(self):
@@ -55,6 +57,28 @@ class AnalysisService:
             self._spreadsheet = get_spreadsheet(self.spreadsheet_id, self.sheets_client)
         return self._spreadsheet
     
+    @property
+    def agent_config(self) -> FullAgentConfig:
+        """Lazy-initialized agent configuration from YAML + Google Sheets."""
+        if self._agent_config is None:
+            # Find project root by looking for pyproject.toml
+            current_path = Path(__file__).resolve()
+            project_root = None
+            
+            # Walk up the directory tree to find project root
+            for parent in current_path.parents:
+                if (parent / 'pyproject.toml').exists():
+                    project_root = parent
+                    break
+            
+            if project_root is None:
+                raise ValueError("Could not find project root (pyproject.toml not found)")
+            
+            yaml_path = project_root / 'agents' / 'business_evaluation.yaml'
+            agent_def = AgentDefinition.from_yaml(yaml_path)
+            self._agent_config = FullAgentConfig.from_definition(agent_def, self.sheets_client)
+        return self._agent_config
+    
     def validate_user_input(self, user_input: Dict[str, Any]) -> None:
         """Validate user input against required schema.
         
@@ -67,7 +91,7 @@ class AnalysisService:
         if not user_input:
             raise ValidationError("user_input is required")
         
-        required_fields = list(IdeaGuyUserInput.columns.keys())
+        required_fields = [field.name for field in self.agent_config.schema.input_fields]
         missing_fields = [
             field for field in required_fields 
             if field not in user_input or not str(user_input[field]).strip()
@@ -91,7 +115,7 @@ class AnalysisService:
         pricepoints = self.budget_manager.calculate_pricepoints(user_input)
         
         return {
-            "agent_type": "business_evaluation",
+            "agent_type": self.agent_config.definition.agent_id,
             "pricepoints": pricepoints,
             "user_input": user_input,
             "message": "Select a budget tier and call /api/execute_analysis to start the analysis",
@@ -127,31 +151,29 @@ class AnalysisService:
             logging.warning("Running in testing mode - creating mock job")
             return self._create_mock_job(user_input, budget_tier)
         
-        # Create spreadsheet record
-        job_id = str(uuid.uuid4())
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
+        # Start multi-call analysis architecture first to get the real job ID
         try:
-            self._create_spreadsheet_record(job_id, timestamp, user_input)
-            logging.info(f"Created spreadsheet record with ID: {job_id}")
-        except Exception as e:
-            logging.error(f"Failed to create spreadsheet record: {str(e)}")
-            raise ValidationError(f"Failed to create spreadsheet record: {str(e)}")
-        
-        # Start multi-call analysis architecture
-        try:
-            analysis_job_id = create_multi_call_analysis(user_input, tier_config, self.openai_client)
+            analysis_job_id = create_multi_call_analysis(user_input, tier_config, self.openai_client, self.agent_config)
             logging.info(f"Started multi-call analysis job: {analysis_job_id}")
         except Exception as e:
             logging.error(f"Failed to start multi-call analysis: {str(e)}")
             raise ValidationError(f"Failed to start analysis: {str(e)}")
         
+        # Create spreadsheet record with the OpenAI job ID
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        try:
+            self._create_spreadsheet_record(analysis_job_id, timestamp, user_input)
+            logging.info(f"Created spreadsheet record with OpenAI job ID: {analysis_job_id}")
+        except Exception as e:
+            logging.error(f"Failed to create spreadsheet record: {str(e)}")
+            raise ValidationError(f"Failed to create spreadsheet record: {str(e)}")
+        
         return {
             "job_id": analysis_job_id,
             "status": "processing",
-            "agent_type": "business_evaluation",
+            "agent_type": self.agent_config.definition.agent_id,
             "budget_tier": budget_tier,
-            "spreadsheet_record_id": job_id,
             "message": f"Analysis started with {budget_tier} tier. Use job_id to poll /api/process_idea",
             "next_endpoint": f"/api/process_idea?id={analysis_job_id}",
             "timestamp": datetime.datetime.now().isoformat(),
@@ -176,12 +198,12 @@ class AnalysisService:
             # Create row with job ID, timestamp, and input data
             row_data = [job_id, timestamp]
             
-            # Add input column values in schema order
-            for column in IdeaGuyUserInput.columns.keys():
-                row_data.append(user_input.get(column, ""))
+            # Add input column values in dynamic schema order
+            for field in self.agent_config.schema.input_fields:
+                row_data.append(user_input.get(field.name, ""))
             
             # Add empty output columns (will be filled by process_idea)
-            for _ in range(len(IdeaGuyUserInput.columns) + 8):  # Approximate output columns
+            for _ in range(len(self.agent_config.schema.output_fields)):
                 row_data.append("")
             
             worksheet.append_row(row_data)
@@ -238,7 +260,7 @@ class AnalysisService:
         return {
             "job_id": mock_job_id,
             "status": "processing",
-            "agent_type": "business_evaluation",
+            "agent_type": self.agent_config.definition.agent_id,
             "budget_tier": budget_tier,
             "spreadsheet_record_id": mock_job_id,
             "message": f"[TESTING MODE] Mock analysis started with {budget_tier} tier. No API charges incurred.",

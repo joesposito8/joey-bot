@@ -6,7 +6,9 @@ from dataclasses import dataclass
 from typing import Dict, List, Any, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from common.idea_guy.utils import get_idea_analysis_prompt
+from common.config import AgentDefinition, FullAgentConfig
+from common.utils import get_google_sheets_client
+from pathlib import Path
 from common.http_utils import is_testing_mode
 
 
@@ -34,40 +36,38 @@ def get_architecture_planning_prompt(
     available_calls: int,
     user_input: Dict[str, Any]
 ) -> str:
-    """Generate prompt for planning optimal call architecture.
+    """Generate universal prompt for planning optimal call architecture.
     
     Args:
-        original_prompt: The business analysis prompt to execute
-        available_calls: Number of API calls available (1, 3, or 5)
-        user_input: User's business idea input
+        original_prompt: The analysis prompt to execute (from agent config)
+        available_calls: Number of API calls available
+        user_input: User's input data
         
     Returns:
-        Planning prompt for architecture design
+        Universal planning prompt for architecture design
     """
-    return f"""You are an expert AI architecture planner specializing in venture capital financial analysis. Your job is to design the optimal execution strategy to achieve the most accurate business analysis with STRONG EMPHASIS on determining the exact expected financial value of this business opportunity.
+    # Format user input generically
+    input_summary = "\n".join([f"{key}: {value}" for key, value in user_input.items()])
+    
+    return f"""You are an expert AI architecture planner. Your job is to design the optimal execution strategy to achieve the most accurate analysis using the available resources.
 
-RESOURCES: {available_calls} total API calls to o4-mini-deep-research
+RESOURCES: {available_calls} total API calls to gpt-4o-mini
 CONSTRAINTS: 
 - Maximum 4 calls can run simultaneously
 - Each call tree must end with a summarizer that attempts to answer the original prompt
 - You must use ALL available calls efficiently
-- PRIORITY: Ensure at least one specialist call focuses heavily on financial modeling, revenue projections, and expected value calculations
+- Focus on comprehensive analysis across all required dimensions
 
 ORIGINAL ANALYSIS PROMPT TO EXECUTE:
 {original_prompt}
 
-USER'S BUSINESS IDEA:
-Idea Overview: {user_input.get('Idea_Overview', '')}
-Deliverable: {user_input.get('Deliverable', '')}  
-Motivation: {user_input.get('Motivation', '')}
+USER INPUT DATA:
+{input_summary}
 
-FINANCIAL ANALYSIS REQUIREMENTS:
-- Calculate specific revenue projections (Year 1-5)
-- Estimate market capture potential and user acquisition costs
-- Determine expected value using probability-weighted scenarios
-- Include comparable company valuations and exit multiples
-- Assess funding requirements and dilution impact
-- Provide DCF analysis or similar valuation framework
+ANALYSIS REQUIREMENTS:
+- Provide comprehensive analysis across all required output fields
+- Use available calls to maximize depth and accuracy
+- Ensure final output matches the required format structure
 
 TASK: Design the optimal call architecture as a JSON plan with this exact structure:
 
@@ -93,7 +93,7 @@ TASK: Design the optimal call architecture as a JSON plan with this exact struct
         {{
             "call_id": "final_summary",
             "purpose": "Synthesize all findings into final analysis", 
-            "prompt": "Synthesize the findings from previous calls into the complete business analysis format required by the original prompt",
+            "prompt": "Synthesize the findings from previous calls into the complete analysis format required by the original prompt",
             "dependencies": ["call_1", "call_2"],
             "is_summarizer": true
         }}
@@ -106,17 +106,13 @@ TASK: Design the optimal call architecture as a JSON plan with this exact struct
 }}
 
 OPTIMIZATION STRATEGIES for {available_calls} calls:
-- 1 call: Single comprehensive analysis with embedded financial modeling
-- 3 calls: Market research, financial modeling & competitive analysis, then synthesize with expected value calculation
-- 5 calls: Market analysis, competitive landscape, technical feasibility, dedicated financial modeling & valuation, synthesis with DCF analysis
+- 1 call: Single comprehensive analysis covering all required dimensions
+- 3 calls: Multi-faceted analysis with specialized focus areas, then synthesize
+- 5+ calls: Deep specialized analysis across multiple dimensions with comprehensive synthesis
 
-CRITICAL: The final summarizer MUST include a dedicated "Expected Value Analysis" section with:
-- Specific dollar amounts for revenue projections
-- Probability-weighted scenarios (optimistic/realistic/pessimistic)
-- Comparable company valuation multiples
-- Expected return calculations for investors
+CRITICAL: The final summarizer MUST provide complete analysis covering all required output fields as specified in the original prompt.
 
-Ensure each non-summarizer call focuses on a specific aspect that contributes unique value, with at least one call dedicated to rigorous financial analysis and valuation.
+Ensure each non-summarizer call focuses on a specific aspect that contributes unique value to the overall analysis.
 
 Respond with ONLY the JSON plan, no other text."""
 
@@ -142,9 +138,9 @@ class MultiCallArchitecture:
         """Plan optimal architecture for given constraints.
         
         Args:
-            original_prompt: Business analysis prompt to execute
+            original_prompt: Analysis prompt to execute (from agent config)
             available_calls: Number of API calls available
-            user_input: User's business idea input
+            user_input: User's input data
             
         Returns:
             Complete architecture plan
@@ -158,9 +154,9 @@ class MultiCallArchitecture:
                 original_prompt, available_calls, user_input
             )
             
-            # Get architecture plan from o4-mini-high (using o4-mini-deep-research for now)
+            # Get architecture plan from o4-mini-high (using gpt-4o-mini for now)
             response = self.client.responses.create(
-                model="o4-mini-deep-research",
+                model="gpt-4o-mini",
                 input=[{"role": "user", "content": [{"type": "input_text", "text": planning_prompt}]}],
                 background=False  # Synchronous for planning
             )
@@ -199,7 +195,7 @@ class MultiCallArchitecture:
         """Create simple fallback plan if architecture planning fails.
         
         Args:
-            original_prompt: Business analysis prompt
+            original_prompt: Analysis prompt
             available_calls: Number of calls available
             
         Returns:
@@ -466,22 +462,24 @@ class MultiCallArchitecture:
 def create_multi_call_analysis(
     user_input: Dict[str, Any],
     tier_config,
-    openai_client
+    openai_client,
+    agent_config
 ) -> str:
-    """Create and execute multi-call analysis architecture.
+    """Create and execute universal multi-call analysis architecture.
     
     Args:
-        user_input: User's business idea input
+        user_input: User's input data
         tier_config: Budget tier configuration with call_count
         openai_client: OpenAI client
+        agent_config: FullAgentConfig instance for dynamic configuration
         
     Returns:
         Job ID for polling the analysis result
     """
-    # Get the original comprehensive prompt
-    from common.idea_guy.utils import IdeaGuyUserInput
-    user_input_obj = IdeaGuyUserInput(user_input)
-    original_prompt = get_idea_analysis_prompt(user_input_obj)
+    if agent_config is None:
+        raise ValueError("agent_config is required for universal multi-call analysis")
+    
+    original_prompt = agent_config.generate_analysis_prompt(user_input)
     
     # Initialize architecture system
     architecture = MultiCallArchitecture(openai_client)

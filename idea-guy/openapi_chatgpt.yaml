@@ -1,0 +1,278 @@
+openapi: 3.1.0
+info:
+  title: Joey Bot - Business Analysis API
+  version: "2.0.0"
+  description: Multi-call architecture business analysis with financial focus
+
+servers:
+  - url: https://idea-guy-func.azurewebsites.net
+    description: Deployed Function App
+
+components:
+  schemas:
+    UserInput:
+      type: object
+      required:
+        - "Idea_Overview"
+        - "Deliverable"
+        - "Motivation"
+      properties:
+        "Idea_Overview":
+          type: string
+          description: Overview of the business idea
+          example: "AI-powered meal planning app with personalized nutrition"
+        "Deliverable":
+          type: string
+          description: What will be delivered
+          example: "Mobile app with AI nutritionist and recipe database"
+        "Motivation":
+          type: string
+          description: Motivation behind the idea
+          example: "Help people achieve wellness goals through personalized nutrition"
+
+  securitySchemes:
+    azureFunctionKey:
+      type: apiKey
+      in: header
+      name: x-functions-key
+
+security:
+  - azureFunctionKey: []
+
+paths:
+  /api/get_instructions:
+    get:
+      operationId: getInstructions
+      summary: Get ChatGPT bot instructions
+      description: Returns workflow instructions for the ChatGPT bot
+      security: []
+      responses:
+        "200":
+          description: Instructions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  instructions:
+                    type: string
+                    description: System instructions for the bot
+
+  /api/get_pricepoints:
+    post:
+      operationId: getPricepoints
+      summary: Get budget options for analysis
+      description: Returns available budget tiers with pricing and features
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_input
+              properties:
+                user_input:
+                  $ref: '#/components/schemas/UserInput'
+      responses:
+        "200":
+          description: Budget options retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agent_type:
+                    type: string
+                    example: "business_evaluation"
+                  pricepoints:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        level:
+                          type: string
+                          example: "standard"
+                        name:
+                          type: string
+                          example: "Triple-Call Analysis"
+                        max_cost:
+                          type: number
+                          example: 3.00
+                        estimated_cost:
+                          type: number
+                          example: 3.00
+                        model:
+                          type: string
+                          example: "o4-mini-deep-research"
+                        description:
+                          type: string
+                          example: "3 coordinated calls with intelligent architecture planning"
+                        time_estimate:
+                          type: string
+                          example: "15-20 minutes"
+                  message:
+                    type: string
+                    example: "Select a budget tier and call /api/execute_analysis"
+                  next_endpoint:
+                    type: string
+                    example: "/api/execute_analysis"
+
+  /api/execute_analysis:
+    post:
+      operationId: executeAnalysis
+      summary: Execute business analysis
+      description: Start analysis with selected budget tier using multi-call architecture
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_input
+                - budget_tier
+              properties:
+                user_input:
+                  $ref: '#/components/schemas/UserInput'
+                budget_tier:
+                  type: string
+                  enum: ["basic", "standard", "premium"]
+                  description: Selected budget tier (basic=$1, standard=$3, premium=$5)
+      responses:
+        "200":
+          description: Analysis started successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job_id:
+                    type: string
+                    description: Job ID for polling results
+                    example: "job_abc123"
+                  status:
+                    type: string
+                    example: "processing"
+                  budget_tier:
+                    type: string
+                    example: "standard"
+                  message:
+                    type: string
+                    example: "Analysis started with standard tier. Use job_id to poll /api/process_idea"
+                  next_endpoint:
+                    type: string
+                    example: "/api/process_idea?id=job_abc123"
+
+  /api/process_idea:
+    get:
+      operationId: processIdea
+      summary: Check analysis status and get results
+      description: Poll for analysis completion and retrieve results
+      parameters:
+        - name: id
+          in: query
+          required: true
+          description: Job ID from execute_analysis
+          schema:
+            type: string
+            example: "job_abc123"
+      responses:
+        "200":
+          description: Analysis completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "completed"
+                  job_id:
+                    type: string
+                    example: "job_abc123"
+                  "Novelty_Rating":
+                    type: string
+                    example: "7"
+                  "Novelty_Rationale":
+                    type: string
+                    example: "Moderate novelty with AI personalization features"
+                  "Feasibility_Rating":
+                    type: string
+                    example: "8"
+                  "Feasibility_Rationale":
+                    type: string
+                    example: "Technology stack is mature with proven frameworks"
+                  "Effort_Rating":
+                    type: string
+                    example: "6"
+                  "Effort_Rationale":
+                    type: string
+                    example: "3-6 months with team of 3-4 developers"
+                  "Impact_Rating":
+                    type: string
+                    example: "8"
+                  "Impact_Rationale":
+                    type: string
+                    example: "Large market with strong growth potential"
+                  "Risk_Rating":
+                    type: string
+                    example: "5"
+                  "Risk_Rationale":
+                    type: string
+                    example: "Moderate risk due to competitive landscape"
+                  "Overall_Rating":
+                    type: string
+                    example: "7"
+                  "Overall_Rationale":
+                    type: string
+                    example: "Strong feasibility and impact balanced against moderate novelty"
+                  "Analysis_Summary":
+                    type: string
+                    example: "Promising idea with good market potential and feasible implementation"
+                  "Expected_Value_Analysis":
+                    type: string
+                    example: "Revenue projections: Year 1 $2M, Year 5 $15M. DCF NPV $85M at 12% discount. Expected IRR 35-45%. Comparable SaaS companies trade at 8-12x revenue multiples."
+                  "Potential_Improvements":
+                    type: string
+                    example: "Consider adding AI-powered personalization to differentiate"
+        "202":
+          description: Analysis still processing
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "processing"
+                  message:
+                    type: string
+                    example: "Analysis still being processed. Please try again later."
+                  job_id:
+                    type: string
+                    example: "job_abc123"
+
+  /api/read_sheet:
+    get:
+      operationId: readSheet
+      summary: Read analysis data from spreadsheet
+      description: Retrieve stored analysis results from Google Sheets
+      parameters:
+        - name: id
+          in: query
+          required: false
+          description: Optional ID to filter results
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Sheet data retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sheet_data:
+                    type: object
+                    description: Spreadsheet data organized by worksheet

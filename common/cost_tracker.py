@@ -55,7 +55,7 @@ class CostTracker:
         
         Args:
             endpoint: API endpoint called (e.g., 'execute_analysis')
-            model: OpenAI model used (e.g., 'o4-mini-deep-research')
+            model: OpenAI model used (e.g., 'gpt-4o-mini')
             budget_tier: Budget tier selected ('basic', 'standard', 'premium')
             job_id: Unique job identifier
             usage_data: Token usage from OpenAI response
@@ -275,10 +275,6 @@ OPENAI_PRICING = {
         "input": 0.003000,   # $3.00 per 1K input tokens
         "output": 0.012000   # $12.00 per 1K output tokens
     },
-    "o4-mini-deep-research": {
-        "input": 0.010000,   # $10.00 per 1K input tokens (estimated)
-        "output": 0.030000   # $30.00 per 1K output tokens (estimated)
-    }
 }
 
 

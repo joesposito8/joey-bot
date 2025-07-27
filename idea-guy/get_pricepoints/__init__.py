@@ -37,7 +37,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 400
             )
         
-        # Initialize analysis service and get budget options
+        # Initialize analysis service with dynamic configuration and get budget options
         analysis_service = AnalysisService(spreadsheet_id)
         response_data = analysis_service.get_budget_options(user_input)
         
@@ -66,6 +66,15 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             exception=e
         )
     except Exception as e:
+        # Check if this is a configuration error
+        if "agent_config" in str(e) or "configuration" in str(e).lower():
+            return build_error_response(
+                message=f"Configuration error: {str(e)}",
+                status_code=500,
+                error_type="config_error",
+                details={"endpoint": "get_pricepoints"}
+            )
+        
         return log_and_return_error(
             message="An unexpected error occurred while getting pricing options. Please contact support if this persists.",
             status_code=500,

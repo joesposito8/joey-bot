@@ -1,381 +1,558 @@
-# Troubleshooting Guide
+# Joey-Bot Troubleshooting Guide
+
+**Last Updated**: 2025-01-27  
+**System**: Universal AI Agent Platform
+
+## Quick Diagnostics
+
+### System Health Check
+```bash
+# Verify system components
+python -c "
+from common.http_utils import is_testing_mode
+from common.agent_service import AnalysisService
+print(f'✅ Testing mode: {is_testing_mode()}')
+print('✅ Core imports: OK')
+"
+```
+
+### Environment Verification
+```bash
+# Check required environment variables
+python -c "
+import os
+required = ['OPENAI_API_KEY', 'IDEA_GUY_SHEET_ID']
+for var in required:
+    value = os.getenv(var, 'NOT SET')
+    status = '✅' if value != 'NOT SET' else '❌'
+    print(f'{status} {var}: {value[:10]}...' if len(value) > 10 else f'{status} {var}: {value}')
+"
+```
+
+---
 
 ## Common Issues & Solutions
 
-### 🚨 API Charges During Development
+### 🚨 **API Charges During Development**
 
 **Problem:** Accidentally incurring OpenAI costs during testing
 
 **Solution:**
 ```bash
+# Always enable testing mode for development
 export TESTING_MODE=true
 ```
 
 **Verification:**
-```python
-from common.http_utils import is_testing_mode
-print(f"Testing mode active: {is_testing_mode()}")
-```
-
-**Expected behavior:**
-- All job IDs start with `"mock_"`
+- All job IDs should start with `"mock_"` or `"job_"`
 - Responses include `"testing_mode": true`
-- No actual API calls made
+- Analysis completes immediately (no waiting)
+
+**Prevention:**
+```python
+# Add to development scripts
+from common.http_utils import is_testing_mode
+assert is_testing_mode(), "Testing mode must be enabled for development"
+```
 
 ---
 
-### 🔑 Missing Environment Variables
+### 🔑 **Environment Variables Missing**
 
 **Problem:** `ValueError: OpenAI API key is required`
 
-**Solution:**
+**Development Solution:**
 ```bash
-# Required for production
-export OPENAI_API_KEY=your_api_key
-export IDEA_GUY_SHEET_ID=your_sheet_id
-export GOOGLE_SHEETS_KEY_PATH=path/to/credentials.json
-
-# For testing only
 export TESTING_MODE=true
-export IDEA_GUY_SHEET_ID=test_sheet_id  # Any value works in testing mode
+export OPENAI_API_KEY=dummy_key_for_testing
+export IDEA_GUY_SHEET_ID=dummy_sheet_id
+```
+
+**Production Solution:**
+```bash
+export OPENAI_API_KEY=sk-your-actual-api-key
+export IDEA_GUY_SHEET_ID=your-google-sheet-id
+export GOOGLE_SHEETS_KEY_PATH=path/to/service-account.json
 ```
 
 **Azure Function App Settings:**
 ```json
 {
-  "OPENAI_API_KEY": "sk-...",
+  "OPENAI_API_KEY": "sk-your-actual-key",
   "IDEA_GUY_SHEET_ID": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",
-  "GOOGLE_SHEETS_KEY_PATH": "/home/site/wwwroot/credentials.json",
-  "TESTING_MODE": "false"
+  "GOOGLE_SHEETS_KEY_PATH": "/home/site/wwwroot/.keys/service-account.json"
 }
 ```
 
 ---
 
-### 📊 Google Sheets Access Issues
+### 📊 **Google Sheets Access Issues**
 
-**Problem:** `Failed to initialize Google Sheets client`
+**Problem:** `SheetAccessError: Cannot access sheet at {url}`
 
-**Symptoms:**
-```
-ERROR: [Errno 2] No such file or directory: 'mock_path'
-ERROR: Failed to initialize Google Sheets client
+**Diagnosis:**
+```python
+# Test sheet access
+from common.config.sheet_schema_reader import SheetSchemaReader
+from common.utils import get_google_sheets_client
+
+try:
+    gc = get_google_sheets_client()
+    reader = SheetSchemaReader(gc)
+    schema = reader.parse_sheet_schema("your-sheet-url")
+    print("✅ Sheet access OK")
+except Exception as e:
+    print(f"❌ Sheet access failed: {e}")
 ```
 
 **Solutions:**
 
-1. **For Testing:**
-   ```bash
-   export TESTING_MODE=true  # Bypasses Google Sheets completely
+1. **Service Account Permissions:**
+   - Share Google Sheet with service account email
+   - Grant "Editor" permissions
+   - Verify service account key file path
+
+2. **URL Format:**
+   ```python
+   # Correct format
+   sheet_url = "https://docs.google.com/spreadsheets/d/SHEET_ID/edit#gid=0"
+   
+   # Extract sheet ID
+   import re
+   sheet_id = re.search(r'/spreadsheets/d/([a-zA-Z0-9-_]+)', sheet_url).group(1)
    ```
 
-2. **For Production:**
-   ```bash
-   # Verify service account file exists
-   ls -la $GOOGLE_SHEETS_KEY_PATH
-   
-   # Check file permissions
-   chmod 600 $GOOGLE_SHEETS_KEY_PATH
-   
-   # Verify JSON format
-   python -c "import json; json.load(open('$GOOGLE_SHEETS_KEY_PATH'))"
-   ```
-
-3. **Service Account Setup:**
-   - Enable Google Sheets API in Google Cloud Console
-   - Create service account with Sheets access
-   - Download JSON key file
-   - Share spreadsheet with service account email
+3. **Schema Validation:**
+   - Ensure rows 1-3 contain schema definition
+   - Row 1: Field types ("user input" or "bot output")  
+   - Row 2: Field descriptions
+   - Row 3: Field names (column headers)
 
 ---
 
-### 🔄 Analysis Jobs Not Completing
+### 🔄 **Analysis Stuck in Processing**
 
-**Problem:** Jobs stuck in "processing" status
+**Problem:** `GET /api/process_idea` returns `"status": "processing"` indefinitely
 
-**Debug steps:**
+**Diagnosis:**
+```bash
+# Check OpenAI job status directly
+python -c "
+from common.utils import get_openai_client
+client = get_openai_client()
+job_id = 'your-job-id'
+try:
+    response = client.responses.retrieve(job_id)
+    print(f'OpenAI status: {response.status}')
+except Exception as e:
+    print(f'Job not found or failed: {e}')
+"
+```
 
-1. **Check job ID format:**
+**Solutions:**
+
+1. **Check OpenAI Dashboard:**
+   - Log into OpenAI platform
+   - Check API usage and quotas
+   - Verify job completion status
+
+2. **Timeout Handling:**
    ```python
-   # Mock jobs (testing mode)
-   if job_id.startswith("mock_"):
-       print("This is a test job - should complete immediately")
+   # Implement timeout in client code
+   import time
+   max_wait = 1800  # 30 minutes
+   start_time = time.time()
    
-   # Real jobs (production mode)
+   while time.time() - start_time < max_wait:
+       result = check_analysis_status(job_id)
+       if result['status'] == 'completed':
+           break
+       time.sleep(30)
    else:
-       print("This is a production job - may take 5-30 minutes")
+       raise TimeoutError("Analysis timed out")
    ```
 
-2. **Verify OpenAI job status:**
+3. **Manual Result Retrieval:**
    ```python
-   from common import get_openai_client
-   client = get_openai_client()
-   response = client.responses.retrieve(job_id)
-   print(f"OpenAI job status: {response.status}")
-   ```
-
-3. **Check budget tier configuration:**
-   ```python
-   from common.budget_config import BudgetConfigManager
-   manager = BudgetConfigManager()
-   try:
-       tier = manager.get_tier_config("your_tier")
-       print(f"Tier config: {tier}")
-   except KeyError as e:
-       print(f"Invalid tier: {e}")
+   # Force result retrieval for debugging
+   from idea_guy.process_idea import main
+   import azure.functions as func
+   
+   # Create mock request
+   req = func.HttpRequest(
+       method='GET',
+       body=b'',
+       url=f'http://localhost/api/process_idea?id={job_id}',
+       headers={}
+   )
+   response = main(req)
+   print(response.get_body().decode())
    ```
 
 ---
 
-### 🤖 ChatGPT Bot Integration Issues
+### 🎯 **Validation Errors**
 
-**Problem:** Bot receives unclear error messages
+**Problem:** `ValidationError: Missing required input fields`
 
-**Error Response Structure:**
+**Diagnosis:**
+```python
+# Check agent configuration
+from common.config import AgentDefinition, FullAgentConfig
+from pathlib import Path
+
+config_path = Path("agents/business_evaluation.yaml")
+agent_def = AgentDefinition.from_yaml(config_path)
+full_config = FullAgentConfig.from_definition(agent_def)
+
+# Check required fields
+required_fields = [field.name for field in full_config.schema.input_fields]
+print(f"Required fields: {required_fields}")
+
+# Test validation
+user_input = {"Idea_Overview": "Test"}  # Incomplete
+try:
+    full_config.schema.validate_input(user_input)
+    print("✅ Validation passed")
+except Exception as e:
+    print(f"❌ Validation failed: {e}")
+```
+
+**Solution:**
+Ensure all required fields are provided:
 ```json
 {
-  "error": "Clear user-facing message",
-  "status": "error",
-  "success": false,
-  "error_type": "validation_error",
-  "suggestion": "Actionable guidance for user",
-  "details": {"additional": "context"}
+  "user_input": {
+    "Idea_Overview": "Brief description of your business idea",
+    "Deliverable": "What specific product or service will you deliver", 
+    "Motivation": "Why should this idea exist? What problem does it solve?"
+  }
 }
 ```
 
-**Common Error Types:**
-
-| Error Type | Cause | Bot Action |
-|------------|-------|------------|
-| `missing_field` | Required field empty/missing | Ask user for specific field |
-| `invalid_budget_tier` | Unknown tier selected | Show available options |
-| `validation_error` | Input format incorrect | Guide user to correct format |
-| `server_error` | Internal system issue | Suggest retry or contact support |
-
-**Debug ChatGPT workflow:**
-```python
-# Test complete workflow
-python test_chatgpt_flow.py
-
-# Check specific endpoint
-curl -X POST /api/get_pricepoints \
-  -H "Content-Type: application/json" \
-  -d '{"user_input": {"Idea_Overview": "test", "Deliverable": "test", "Motivation": "test"}}'
-```
-
 ---
 
-### 🏗️ Import and Module Issues
+### 🏗️ **Import Errors**
 
-**Problem:** `ModuleNotFoundError` or import failures
+**Problem:** `ModuleNotFoundError: No module named 'common'`
 
-**Solution:**
-```python
-# Add project root to Python path
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+**Solutions:**
 
-# For Azure Functions, add idea-guy directory
-sys.path.append(os.path.join(os.path.dirname(__file__), 'idea-guy'))
-```
+1. **Python Path:**
+   ```bash
+   export PYTHONPATH="${PYTHONPATH}:$(pwd)"
+   python your_script.py
+   ```
 
-**Verify imports work:**
-```python
-try:
-    from common.agent_service import AnalysisService
-    from common.budget_config import BudgetConfigManager
-    from common.http_utils import build_json_response
-    print("✅ All imports successful")
-except ImportError as e:
-    print(f"❌ Import failed: {e}")
-```
-
----
-
-### 🔧 Azure Functions Deployment Issues
-
-**Problem:** Functions don't appear in Azure portal
-
-**Checklist:**
-- [ ] `function.json` files exist in each endpoint directory
-- [ ] `requirements.txt` includes all dependencies
-- [ ] Environment variables set in Function App settings
-- [ ] Python version matches (`python -V`)
-- [ ] No syntax errors in code (`python -m py_compile filename.py`)
-
-**Debug deployment:**
-```bash
-# Test locally first
-func start
-
-# Check function discovery
-func azure functionapp list-functions your-function-app
-
-# View deployment logs
-func azure functionapp logstream your-function-app
-```
-
----
-
-### 📈 Performance Issues
-
-**Problem:** Slow response times or timeouts
-
-**Optimization checklist:**
-
-1. **Enable lazy initialization:**
+2. **Azure Functions:**
    ```python
-   # ✅ Good - lazy loading
-   @property
-   def openai_client(self):
-       if self._client is None:
-           self._client = get_openai_client()
-       return self._client
-   
-   # ❌ Bad - import-time loading
-   client = get_openai_client()  # At module level
-   ```
-
-2. **Use testing mode for development:**
-   ```bash
-   export TESTING_MODE=true  # Instant mock responses
-   ```
-
-3. **Monitor Azure Function execution times:**
-   ```bash
-   # Check function logs
-   func azure functionapp logstream your-function-app
-   ```
-
-4. **Optimize budget tier selection:**
-   ```python
-   # Basic tier (fastest, cheapest)
-   budget_tier = "basic"  # 5-10 minutes, $0.20
-   
-   # Premium tier (slowest, most comprehensive)  
-   budget_tier = "premium"  # 20-30 minutes, $2.50
-   ```
-
----
-
-### 🔍 Debugging Production Issues
-
-**Log Analysis:**
-
-1. **Find detailed error context:**
-   ```bash
-   # Look for structured error logs
-   grep "Error Details:" function_logs.txt
-   ```
-
-2. **Check error patterns:**
-   ```json
-   {
-     "error_type": "validation_error",
-     "endpoint": "execute_analysis",
-     "budget_tier": "premium",
-     "exception_type": "ValidationError",
-     "testing_mode": false
-   }
-   ```
-
-3. **Trace request flow:**
-   ```bash
-   # Follow job through workflow
-   grep "job_id_12345" function_logs.txt | sort
-   ```
-
-**Enable verbose logging:**
-```python
-import logging
-logging.basicConfig(level=logging.DEBUG)
-
-# Or in Azure Functions
-logging.getLogger().setLevel(logging.DEBUG)
-```
-
----
-
-### 🧪 Test Failures
-
-**Problem:** Tests failing unexpectedly
-
-**Debug steps:**
-
-1. **Verify testing mode:**
-   ```bash
-   echo $TESTING_MODE  # Should be "true"
-   ```
-
-2. **Check environment isolation:**
-   ```python
-   # Clear environment between tests
-   import os
-   for key in list(os.environ.keys()):
-       if key.startswith(('TESTING_', 'IDEA_GUY_')):
-           del os.environ[key]
-   ```
-
-3. **Run tests individually:**
-   ```bash
-   python -c "
+   # Add to top of Azure Function
    import sys
-   sys.path.append('.')
-   from test_simple_endpoint import test_budget_tier_system
-   test_budget_tier_system()
+   import os
+   sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+   ```
+
+3. **Package Installation:**
+   ```bash
+   # Install in development mode
+   pip install -e .
+   
+   # Or install requirements
+   pip install -r requirements.txt
+   ```
+
+---
+
+### 💰 **Cost Tracking Issues**
+
+**Problem:** `openai_costs.log` not updating or missing cost information
+
+**Diagnosis:**
+```bash
+# Check log file permissions and content
+ls -la openai_costs.log
+tail -n 5 openai_costs.log
+
+# Test cost logging
+python -c "
+from common.cost_tracker import log_openai_cost
+log_openai_cost('test', 'gpt-4o-mini', 'standard', 'test_job', 
+                {'total_tokens': 1000}, 0.01, {'test': 'data'})
+print('Cost logged successfully')
+"
+```
+
+**Solutions:**
+
+1. **File Permissions:**
+   ```bash
+   # Ensure write permissions
+   chmod 644 openai_costs.log
+   touch openai_costs.log  # Create if missing
+   ```
+
+2. **Log Rotation:**
+   ```bash
+   # Archive large log files
+   mv openai_costs.log openai_costs.log.backup
+   touch openai_costs.log
+   ```
+
+3. **Cost Calculation:**
+   ```python
+   # Verify cost calculation
+   from common.cost_tracker import calculate_cost_from_usage
+   
+   usage = {"prompt_tokens": 1000, "completion_tokens": 500, "total_tokens": 1500}
+   cost = calculate_cost_from_usage("gpt-4o-mini", usage)
+   print(f"Calculated cost: ${cost:.4f}")
+   ```
+
+---
+
+### 🔧 **Azure Functions Issues**
+
+**Problem:** Functions not starting or returning 500 errors
+
+**Local Development:**
+```bash
+# Check function runtime
+cd idea-guy
+func --version
+
+# Start with verbose logging
+func start --python --verbose
+
+# Test specific function
+func new --name test_function --template "HTTP trigger" --authlevel anonymous
+```
+
+**Deployment Issues:**
+```bash
+# Check deployment logs
+az functionapp log tail --name your-function-app --resource-group your-rg
+
+# Verify function app settings
+az functionapp config appsettings list --name your-function-app --resource-group your-rg
+```
+
+---
+
+### 🔍 **Configuration Issues**
+
+**Problem:** Agent configuration not loading or schema parsing fails
+
+**Diagnosis:**
+```python
+# Test YAML loading
+from common.config.agent_definition import AgentDefinition
+from pathlib import Path
+
+try:
+    config = AgentDefinition.from_yaml(Path("agents/business_evaluation.yaml"))
+    print(f"✅ Config loaded: {config.agent_id}")
+    print(f"Budget tiers: {len(config.budget_tiers)}")
+except Exception as e:
+    print(f"❌ Config failed: {e}")
+
+# Test schema parsing
+from common.config.sheet_schema_reader import SheetSchemaReader
+from common.utils import get_google_sheets_client
+
+try:
+    gc = get_google_sheets_client()
+    reader = SheetSchemaReader(gc)
+    schema = reader.parse_sheet_schema(config.sheet_url)
+    print(f"✅ Schema parsed: {len(schema.input_fields)} input, {len(schema.output_fields)} output")
+except Exception as e:
+    print(f"❌ Schema failed: {e}")
+```
+
+**Solutions:**
+
+1. **YAML Syntax:**
+   ```bash
+   # Validate YAML syntax
+   python -c "
+   import yaml
+   with open('agents/business_evaluation.yaml') as f:
+       yaml.safe_load(f)
+   print('YAML syntax valid')
    "
    ```
 
-4. **Validate mock data:**
-   ```python
-   from common.agent_service import AnalysisService
-   service = AnalysisService('test_id')
-   
-   # Should not trigger real API calls
-   result = service.get_budget_options(test_input)
-   assert result.get('testing_mode') is True
+2. **Schema Format:**
+   Ensure Google Sheet has proper schema in rows 1-3:
    ```
+   Row 1: | ID | Time | user input | user input | user input | bot output | bot output |
+   Row 2: | ID | Time | Brief desc | What will  | Why this   | How novel  | Detailed   |
+   Row 3: | ID | Time | Idea_Overvw| Deliverable| Motivation | Novelty_Rtg| Analysis   |
+   ```
+
+---
+
+## Performance Issues
+
+### 🐌 **Slow Response Times**
+
+**Problem:** API endpoints taking too long to respond
+
+**Monitoring:**
+```python
+# Add timing to requests
+import time
+start_time = time.time()
+
+# Your API call here
+response = make_api_request()
+
+duration = time.time() - start_time
+print(f"Request took {duration:.2f} seconds")
+```
+
+**Optimization:**
+1. **Enable caching** for budget tier configurations
+2. **Use testing mode** for development to avoid OpenAI delays
+3. **Implement request timeouts** in client code
+4. **Monitor Azure Function performance** metrics
+
+### 📊 **Memory Usage**
+
+**Problem:** High memory consumption or out-of-memory errors
+
+**Monitoring:**
+```python
+# Check memory usage
+import psutil
+import os
+
+process = psutil.Process(os.getpid())
+memory_mb = process.memory_info().rss / 1024 / 1024
+print(f"Memory usage: {memory_mb:.1f} MB")
+```
+
+**Solutions:**
+1. **Clear large variables** after use
+2. **Use generators** for large data processing
+3. **Increase Azure Function memory allocation**
+
+---
+
+## Debugging Tools
+
+### 🔍 **Enable Debug Logging**
+
+```python
+# Add to any module for detailed logging
+import logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
+# Use in Azure Functions
+import azure.functions as func
+import logging
+
+def main(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Function started')
+    
+    # Your code here
+    
+    logging.info('Function completed')
+```
+
+### 📝 **Request/Response Tracing**
+
+```python
+# Add request tracing
+def trace_request(req: func.HttpRequest):
+    logging.info(f"Method: {req.method}")
+    logging.info(f"URL: {req.url}")
+    logging.info(f"Headers: {dict(req.headers)}")
+    logging.info(f"Body: {req.get_body().decode()}")
+
+def trace_response(response: func.HttpResponse):
+    logging.info(f"Status: {response.status_code}")
+    logging.info(f"Body: {response.get_body().decode()}")
+```
+
+### 🧪 **Interactive Testing**
+
+```python
+# Use IPython for interactive debugging
+# pip install ipython
+
+def debug_analysis():
+    from IPython import embed
+    
+    # Set up test data
+    user_input = {
+        "Idea_Overview": "Test idea",
+        "Deliverable": "Test deliverable", 
+        "Motivation": "Test motivation"
+    }
+    
+    # Start interactive session
+    embed()  # This will open an interactive Python shell
+
+# Run: python -c "from debug import debug_analysis; debug_analysis()"
+```
 
 ---
 
 ## Getting Help
 
-### 1. Check Logs First
-```bash
-# Azure Functions
-func azure functionapp logstream your-function-app
+### 📋 **Information to Gather**
 
-# Local development
-func start --verbose
-```
-
-### 2. Enable Debug Mode
-```python
-import logging
-logging.basicConfig(level=logging.DEBUG)
-```
-
-### 3. Test Endpoints Individually
-```bash
-# Test each part of the workflow
-python test_simple_endpoint.py      # Core logic
-python test_chatgpt_flow.py         # End-to-end workflow
-```
-
-### 4. Verify Configuration
-```python
-# Check all environment variables
-import os
-for key, value in os.environ.items():
-    if any(x in key for x in ['OPENAI', 'GOOGLE', 'IDEA_GUY', 'TESTING']):
-        print(f"{key}: {'*' * len(value) if 'KEY' in key else value}")
-```
-
-### 5. Contact Support
 When reporting issues, include:
-- Error messages with full stack traces
-- Environment variable configuration (redact API keys)
-- Testing mode status
-- Endpoint and request data that caused the issue
-- Expected vs actual behavior
+
+1. **Environment Details:**
+   ```bash
+   python --version
+   echo $TESTING_MODE
+   echo $OPENAI_API_KEY | head -c 10
+   ```
+
+2. **Error Messages:**
+   - Full error stack trace
+   - Relevant log entries
+   - Request/response data
+
+3. **Reproduction Steps:**
+   - Exact commands run
+   - Input data used
+   - Expected vs actual behavior
+
+### 📞 **Support Resources**
+
+- **System Architecture**: `docs/SYSTEM_ARCHITECTURE.md`
+- **API Reference**: `docs/API.md` 
+- **Testing Guide**: `docs/TESTING.md`
+- **Configuration Files**: `agents/business_evaluation.yaml`
+- **Cost Logs**: `openai_costs.log`
+
+### 🔧 **Emergency Recovery**
+
+**System won't start:**
+```bash
+# Reset to testing mode
+export TESTING_MODE=true
+unset OPENAI_API_KEY
+
+# Test basic imports
+python -c "from common.agent_service import AnalysisService; print('OK')"
+```
+
+**Clear all state:**
+```bash
+# Remove cached data
+rm -rf __pycache__
+rm -rf common/__pycache__
+rm -rf idea-guy/__pycache__
+
+# Restart Azure Functions
+cd idea-guy && func start --python
+```
+
+For critical production issues, always enable testing mode first to prevent additional API charges while debugging.

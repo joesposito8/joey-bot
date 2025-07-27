@@ -6,10 +6,9 @@ import logging
 import os
 
 from common import get_openai_client, get_google_sheets_client, get_spreadsheet
-from common.idea_guy.utils import IdeaGuyUserInput
+from common.agent_service import AnalysisService
 from common.utils import extract_json_from_text
-from common.idea_guy import IdeaGuyBotOutput
-from common.http_utils import build_json_response, log_and_return_error, is_testing_mode
+from common.http_utils import build_json_response, build_error_response, is_testing_mode
 from common.cost_tracker import log_openai_cost, calculate_cost_from_usage
 
 ID_COLUMN_INDEX = 0
@@ -45,7 +44,7 @@ def get_lazy_spreadsheet():
     return _spreadsheet
 
 
-def get_idea_analysis_result(job_id: str) -> Dict[str, str] | None:
+def get_idea_analysis_result(job_id: str, service: AnalysisService) -> Dict[str, str] | None:
     try:
         # Get the response using the job ID
         client = get_lazy_client()
@@ -85,27 +84,58 @@ def get_idea_analysis_result(job_id: str) -> Dict[str, str] | None:
             except Exception as e:
                 logging.warning(f"Failed to log actual API cost for job {job_id}: {str(e)}")
             
-            # Extract the content from the response
-            if hasattr(response, 'output') and response.output:
-                # Convert response to string and extract JSON
-                response_str = str(response.output[-1].content[0].text)  # type: ignore
-                json_result = extract_json_from_text(response_str, IdeaGuyBotOutput())
+            # Extract the content from the response with improved error handling
+            if hasattr(response, 'output') and response.output and len(response.output) > 0:
+                try:
+                    # Safely access nested response structure
+                    last_output = response.output[-1]
+                    logging.info(f"Response output structure - last_output type: {type(last_output)}")
+                    
+                    if hasattr(last_output, 'content') and last_output.content and len(last_output.content) > 0:
+                        first_content = last_output.content[0]
+                        logging.info(f"Response content structure - first_content type: {type(first_content)}")
+                        
+                        if hasattr(first_content, 'text'):
+                            response_str = str(first_content.text)
+                            logging.info(f"Successfully extracted response text, length: {len(response_str)}")
+                            
+                            # Extract JSON from the response text using dynamic schema
+                            output_fields = [field.name for field in service.agent_config.schema.output_fields]
+                            
+                            # Create mock object for compatibility with extract_json_from_text
+                            class MockOutput:
+                                def __init__(self, fields):
+                                    self.columns = {field: f"Dynamic field {field}" for field in fields}
+                            
+                            mock_output = MockOutput(output_fields)
+                            json_result = extract_json_from_text(response_str, mock_output)
 
-                if json_result:
-                    return json_result
-                else:
-                    # Return structured raw response if JSON extraction fails
-                    return {
-                        "raw_response": response_str,
-                        "extraction_failed": "True",
-                        "validation_failed": "True",
-                        "message": "Could not extract or validate structured JSON from response",
-                        "expected_fields": ", ".join(
-                            list(IdeaGuyBotOutput.columns.keys())
-                        ),
-                    }
+                            if json_result:
+                                return json_result
+                            else:
+                                # Return structured raw response if JSON extraction fails
+                                logging.warning(f"JSON extraction failed for job {job_id}")
+                                return {
+                                    "raw_response": response_str,
+                                    "extraction_failed": "True",
+                                    "validation_failed": "True",
+                                    "message": "Could not extract or validate structured JSON from response",
+                                    "expected_fields": ", ".join(output_fields),
+                                }
+                        else:
+                            raise ValueError(f"Response content missing text attribute. Available attributes: {dir(first_content)}")
+                    else:
+                        content_info = f"length: {len(last_output.content) if hasattr(last_output, 'content') and last_output.content else 'None'}"
+                        raise ValueError(f"Response output missing content array. Content {content_info}")
+                except (IndexError, AttributeError) as e:
+                    logging.error(f"Response structure access failed for job {job_id}: {str(e)}")
+                    logging.error(f"Response output length: {len(response.output) if response.output else 'None'}")
+                    if response.output and len(response.output) > 0:
+                        logging.error(f"Last output attributes: {dir(response.output[-1])}")
+                    raise ValueError(f"Response structure invalid: {str(e)}")
             else:
-                raise ValueError("Response completed but no output found")
+                output_info = f"length: {len(response.output) if hasattr(response, 'output') and response.output else 'None'}"
+                raise ValueError(f"Response completed but no output found. Output {output_info}, has_output_attr: {hasattr(response, 'output')}")
         elif response.status in ["failed", "cancelled", "incomplete"]:
             error_msg = getattr(response, 'error', 'Unknown error')
             raise ValueError(f"Analysis failed: {error_msg}")
@@ -118,7 +148,7 @@ def get_idea_analysis_result(job_id: str) -> Dict[str, str] | None:
         raise ValueError(f"Failed to retrieve analysis result: {str(e)}")
 
 
-def add_bot_output_to_sheet(job_id: str, result: Dict[str, str]):
+def add_bot_output_to_sheet(job_id: str, result: Dict[str, str], service: AnalysisService):
     try:
         spreadsheet = get_lazy_spreadsheet()
         worksheet = spreadsheet.get_worksheet(0)
@@ -130,9 +160,12 @@ def add_bot_output_to_sheet(job_id: str, result: Dict[str, str]):
             if cell_column_index == ID_COLUMN_INDEX:
                 row_num = cell.row
                 start_col = (
-                    cell.col + len(IdeaGuyUserInput.columns.keys()) + 2
+                    cell.col + len(service.agent_config.schema.input_fields) + 2
                 )  # + 2 for going to next column over, and timestamp column
-                for value in result.values():
+                
+                # Write output in schema order
+                for field in service.agent_config.schema.output_fields:
+                    value = result.get(field.name, "")
                     worksheet.update_cell(row_num, start_col, value)
                     start_col += 1
         else:
@@ -144,6 +177,8 @@ def add_bot_output_to_sheet(job_id: str, result: Dict[str, str]):
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed a request.')
+    
+    service = None  # Initialize for error handling scope
 
     try:
         # Get the job ID from query parameters
@@ -175,17 +210,27 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 "timestamp": datetime.datetime.now().isoformat(),
             })
         
+        # Initialize service with dynamic configuration
+        try:
+            service = AnalysisService(os.environ['IDEA_GUY_SHEET_ID'])
+        except Exception as e:
+            return build_error_response(
+                message=f"Configuration error: {str(e)}",
+                status_code=500,
+                error_type="config_error",
+                details={"endpoint": "process_idea"}
+            )
+        
         # Try to get the analysis result
         try:
-            result = get_idea_analysis_result(job_id)
+            result = get_idea_analysis_result(job_id, service)
             logging.info(f"Retrieved analysis result for job {job_id}: {result is not None}")
         except Exception as e:
-            return log_and_return_error(
+            return build_error_response(
                 message=f"Failed to retrieve analysis result: {str(e)}",
                 status_code=500,
                 error_type="result_retrieval_error",
-                context={"endpoint": "process_idea", "job_id": job_id},
-                exception=e
+                details={"endpoint": "process_idea", "job_id": job_id}
             )
 
         if result is None:
@@ -201,15 +246,14 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             return build_json_response(response_data, 202)
 
         try:
-            add_bot_output_to_sheet(job_id, result)
+            add_bot_output_to_sheet(job_id, result, service)
             logging.info(f"Successfully added analysis results to spreadsheet for job {job_id}")
         except ValueError as e:
-            return log_and_return_error(
+            return build_error_response(
                 message=f"Analysis completed but failed to save to spreadsheet: {str(e)}",
                 status_code=500,
                 error_type="spreadsheet_save_error",
-                context={"endpoint": "process_idea", "job_id": job_id},
-                exception=e
+                details={"endpoint": "process_idea", "job_id": job_id}
             )
 
         # Analysis is ready
@@ -235,7 +279,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 context={
                     "endpoint": "process_idea",
                     "job_id": job_id,
-                    "expected_fields": list(IdeaGuyBotOutput.columns.keys())
+                    "expected_fields": [field.name for field in service.agent_config.schema.output_fields] if service else "unknown"
                 },
                 exception=e
             )

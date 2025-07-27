@@ -32,7 +32,7 @@ class BudgetConfigManager:
     """Manages budget tier configurations for extensible agent system."""
     
     def __init__(self):
-        """Initialize with default business evaluation configurations."""
+        """Initialize with default agent configurations."""
         # All tiers now use the best prompts, tools, and reasoning available
         # Only cost-affecting factors (model, time limits) vary between tiers
         
@@ -60,7 +60,7 @@ class BudgetConfigManager:
                 name="Single-Call Analysis",
                 max_cost=1.00,
                 estimated_cost=1.00,
-                model="o4-mini-deep-research",  # All tiers use best model
+                model="gpt-4o-mini",  # All tiers use best model
                 description="1 optimized call with intelligent architecture planning",
                 deliverables=standard_deliverables,
                 time_estimate="5-10 minutes",
@@ -74,7 +74,7 @@ class BudgetConfigManager:
                 name="Triple-Call Analysis", 
                 max_cost=3.00,
                 estimated_cost=3.00,
-                model="o4-mini-deep-research",  # All tiers use best model
+                model="gpt-4o-mini",  # All tiers use best model
                 description="3 coordinated calls with intelligent architecture planning",
                 deliverables=standard_deliverables,
                 time_estimate="15-20 minutes",
@@ -88,7 +88,7 @@ class BudgetConfigManager:
                 name="Five-Call Analysis",
                 max_cost=5.00,
                 estimated_cost=5.00,
-                model="o4-mini-deep-research",  # All tiers use best model
+                model="gpt-4o-mini",  # All tiers use best model
                 description="5 coordinated calls with intelligent architecture planning",
                 deliverables=standard_deliverables,
                 time_estimate="20-30 minutes",

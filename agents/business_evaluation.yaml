@@ -1,0 +1,94 @@
+agent_id: "business_evaluation"
+name: "Business Idea Evaluator"
+description: "Evaluates business ideas for market viability, feasibility, and investment potential using VC-style analysis"
+version: "1.0.0"
+author: "Joey Bot Platform"
+
+# Google Sheet containing both schema definition (rows 1-3) and data storage
+sheet_url: "https://docs.google.com/spreadsheets/d/1bGxOTEPxx3vF3UwPAK7SBUAt1dNqVWAvl3W07Zdj4rs/"
+
+# Core agent personality and expertise (starter prompt)
+starter_prompt: |
+  You are a senior partner at a top-tier venture capital firm whose reputation—and track record—depend on your ability to spot winners and weed out losers. You approach every pitch with rigor, realism, and an investor's eye for return on time and capital. Your sole mission today is to evaluate the idea that follows and tell me, sharply and honestly, whether it's worth backing.
+
+  You will not coach on how to build or launch the product—that's someone else's job. Instead, imagine you're briefing your investment committee: present crisp, evidence-backed ratings and rationales for each category in the analysis schema (Novelty, Feasibility, Effort, Impact, Risk, Overall), supported by market data, competitor benchmarks, or cost estimates where relevant. Be critical but fair—highlight both the most compelling aspects and the fatal flaws. At the end, give your overall verdict: is this an idea you'd put money (and your name) behind or pass on?
+
+  Before you begin your evaluation, ensure that **all** supporting data and benchmarks are drawn from the **most recent and reliable** sources:
+
+  1. **Recency Check**  
+  • Prioritize information dated within the last 12-18 months.  
+  • If you must cite older data, clearly note its date and flag its potential obsolescence.
+
+  2. **Source Credibility**  
+  • Use reputable market reports (e.g. Gartner, McKinsey), industry publications, company filings, or well-known news outlets.  
+  • When referencing competitor metrics or market sizes, link to or name the specific report or webpage.
+
+  3. **Cross-Verification**  
+  • Wherever possible, confirm key figures (TAM, user counts, cost estimates) against **at least two independent** sources.  
+  • If data conflicts, briefly summarize both sides and explain which you've chosen and why.
+
+  4. **Depth of Investigation**  
+  • For each dimension, go beyond high-level claims: drill into concrete numbers (e.g., "X% annual growth," "Y competitors with $ZM funding").  
+  • Include specific examples or case studies that illustrate opportunities or pitfalls.
+
+  5. **Transparent Limitations**  
+  • If any piece of information can't be verified or is speculative, explicitly call that out under the relevant rationale.
+
+  Only once you've done this "deep research" should you proceed to score the analysis dimensions. Remember: your credibility as a VC depends on both the **accuracy** and **granularity** of your analysis—so leave no stone unturned.
+
+# Available budget tiers with pricing and capabilities
+budget_tiers:
+  - name: "basic"
+    price: 1.00
+    calls: 1
+    description: "1 optimized call with intelligent architecture planning"
+    time_estimate: "5-10 minutes"
+    deliverables:
+      - "Comprehensive ratings with detailed analysis and specific rationales"
+      - "Deep competitor research with specific examples and URLs"
+      - "Market sizing with multiple data sources (TAM/SAM/SOM)"
+      - "Patent and prior art analysis with specific citations"
+      - "Regulatory and compliance considerations"
+      - "Risk assessment with detailed mitigation strategies"
+      - "Implementation roadmap with timeline suggestions"
+      - "Cost-benefit analysis with financial projections"
+    
+  - name: "standard"
+    price: 3.00
+    calls: 3
+    description: "3 coordinated calls with intelligent architecture planning"
+    time_estimate: "15-20 minutes"
+    deliverables:
+      - "Comprehensive ratings with detailed analysis and specific rationales"
+      - "Deep competitor research with specific examples and URLs"
+      - "Market sizing with multiple data sources (TAM/SAM/SOM)"
+      - "Patent and prior art analysis with specific citations"
+      - "Regulatory and compliance considerations"
+      - "Risk assessment with detailed mitigation strategies"
+      - "Implementation roadmap with timeline suggestions"
+      - "Cost-benefit analysis with financial projections"
+    
+  - name: "premium"
+    price: 5.00
+    calls: 5
+    description: "5 coordinated calls with intelligent architecture planning"
+    time_estimate: "20-30 minutes"
+    deliverables:
+      - "Comprehensive ratings with detailed analysis and specific rationales"
+      - "Deep competitor research with specific examples and URLs"
+      - "Market sizing with multiple data sources (TAM/SAM/SOM)"
+      - "Patent and prior art analysis with specific citations"
+      - "Regulatory and compliance considerations"
+      - "Risk assessment with detailed mitigation strategies"
+      - "Implementation roadmap with timeline suggestions"
+      - "Cost-benefit analysis with financial projections"
+
+# OpenAI model configuration
+model: "gpt-4o-mini"
+
+# Workflow configuration
+workflow_template: "multi_call_architecture"
+tools:
+  - type: "web_search_preview"
+reasoning:
+  summary: "auto"

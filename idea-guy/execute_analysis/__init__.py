@@ -85,6 +85,15 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             exception=e
         )
     except Exception as e:
+        # Check if this is a configuration error
+        if "agent_config" in str(e) or "configuration" in str(e).lower():
+            return build_error_response(
+                message=f"Configuration error: {str(e)}",
+                status_code=500,
+                error_type="config_error",
+                details={"endpoint": "execute_analysis"}
+            )
+        
         return log_and_return_error(
             message="Failed to start analysis. Please check your input and try again, or contact support if this persists.",
             status_code=500,
