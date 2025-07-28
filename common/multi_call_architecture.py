@@ -159,7 +159,18 @@ class MultiCallArchitecture:
             # Parse response
             if hasattr(response, 'output') and response.output:
                 response_text = str(response.output[-1].content[0].text)
-                plan_data = json.loads(response_text.strip())
+                
+                # Clean response text - remove markdown code blocks if present
+                cleaned_text = response_text.strip()
+                if cleaned_text.startswith('```json'):
+                    cleaned_text = cleaned_text[7:]  # Remove ```json
+                if cleaned_text.startswith('```'):
+                    cleaned_text = cleaned_text[3:]   # Remove ```
+                if cleaned_text.endswith('```'):
+                    cleaned_text = cleaned_text[:-3]  # Remove trailing ```
+                cleaned_text = cleaned_text.strip()
+                
+                plan_data = json.loads(cleaned_text)
                 
                 # Convert to ArchitecturePlan
                 calls = []
