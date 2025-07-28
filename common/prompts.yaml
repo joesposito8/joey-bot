@@ -7,7 +7,7 @@ platform:
 
 # Models used for different platform functions
 models:
-  architecture_planning: "gpt-4o-mini"    # Model for planning multi-call architecture
+  architecture_planning: "o4-mini"    # Model for planning multi-call architecture
   user_interaction: "gpt-4o-mini"        # Model for user input processing/validation
   
 # Common prompts used across all agent types

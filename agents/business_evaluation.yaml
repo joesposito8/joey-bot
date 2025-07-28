@@ -85,8 +85,8 @@ budget_tiers:
 
 # Agent-specific model configuration
 models:
-  analysis: "gpt-4o-mini"           # Model for individual analysis calls
-  synthesis: "gpt-4o-mini"         # Model for final synthesis
+  analysis: "o4-mini"           # Model for individual analysis calls
+  synthesis: "o4-mini"         # Model for final synthesis
 
 # Workflow configuration
 workflow_template: "multi_call_architecture"
