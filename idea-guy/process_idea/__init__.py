@@ -136,7 +136,7 @@ def get_idea_analysis_result(job_id: str, service: AnalysisService) -> Dict[str,
                             logging.info(f"Successfully extracted response text, length: {len(response_str)}")
                             
                             # Extract JSON from the response text (handles markdown formatting)
-                            json_result = self._extract_json_from_response(response_str, service.agent_config.schema.output_fields)
+                            json_result = _extract_json_from_response(response_str, service.agent_config.schema.output_fields)
 
                             if json_result:
                                 return json_result
