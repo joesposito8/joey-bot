@@ -108,15 +108,31 @@ class FullAgentConfig:
     schema: SheetSchema
     
     def generate_instructions(self) -> str:
-        """Generate user instructions from schema."""
-        input_descriptions = [f"- **{field.name}**: {field.description}" 
-                            for field in self.schema.input_fields]
-        return f"""
-# {self.definition.name}
+        """Generate instructions for the ChatGPT bot on how to collect user input."""
+        # List all required fields with descriptions and exact field names
+        field_descriptions = []
+        field_names = []
+        for field in self.schema.input_fields:
+            field_descriptions.append(f"- **{field.name}**: {field.description}")
+            field_names.append(field.name)
+        
+        return f"""You are helping a user with {self.definition.name.lower()} analysis. 
 
-Please provide the following information:
-{chr(10).join(input_descriptions)}
-"""
+Your task is to collect ALL of the following information from the user, one field at a time:
+
+{chr(10).join(field_descriptions)}
+
+COLLECTION PROCESS:
+1. Ask for each field in order, explaining what information you need based on the field description
+2. When the user provides input, repeat it back and ask for confirmation  
+3. If they confirm, move to the next field
+4. If they want to change it, ask for the information again
+5. Continue until you have collected ALL fields listed above
+
+IMPORTANT: Once all fields are collected, when you call the get_pricepoints endpoint, you MUST use these exact field names as keys in the user_input object:
+{', '.join([f'"{name}"' for name in field_names])}
+
+Begin by asking for the first field."""
     
     def generate_analysis_prompt(self, user_input: Dict) -> str:
         """Generate complete analysis prompt = starter + schema + input."""

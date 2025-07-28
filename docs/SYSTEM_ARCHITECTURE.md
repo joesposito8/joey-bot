@@ -1,11 +1,31 @@
 # Joey-Bot System Architecture
 
-**Last Updated**: 2025-01-27  
-**System Status**: Universal AI Agent Platform (Post-Legacy Cleanup)
+**Last Updated**: 2025-01-28  
+**System Status**: Universal AI Agent Platform with Universal Prompt Configuration System
 
 ## Overview
 
-Joey-Bot is a Universal AI Agent Platform that provides business idea evaluation through Azure Functions with Google Sheets storage and OpenAI analysis. The system uses dynamic configuration to support multiple agent types through a unified architecture.
+Joey-Bot is a Universal AI Agent Platform that provides AI-powered analysis through Azure Functions with Google Sheets storage and OpenAI multi-call architecture. The system features:
+
+- **Universal Prompt Configuration**: Shared prompts for all agents with agent-specific customization
+- **Dynamic Schema**: Input/output fields defined in Google Sheets, not hardcoded
+- **Multi-Agent Support**: Single codebase supports any analysis type (business, HR, product, etc.)
+- **Intelligent Architecture Planning**: AI-designed multi-call execution strategies
+
+## Universal Configuration Architecture
+
+### File Structure
+```
+common/prompts.yaml              # 🔧 SHARED - Easy to tune for ALL agents
+common/prompt_manager.py         # Universal prompt management system
+agents/business_evaluation.yaml  # Agent-specific starter_prompt + models
+agents/[agent_name].yaml         # Future agents use same structure
+```
+
+### Configuration Hierarchy
+1. **Platform-Level** (`common/prompts.yaml`): Architecture planning, universal templates
+2. **Agent-Level** (`agents/*.yaml`): Starter prompts, models, expertise
+3. **Dynamic-Level** (Google Sheets): Input/output schema defined by users
 
 ## System Flow (Semi-Pseudocode)
 
@@ -117,8 +137,11 @@ class AnalysisService:
 #### Multi-Call Architecture (`common/multi_call_architecture.py`)
 ```python
 class MultiCallArchitecture:
-    def plan_architecture(prompt, available_calls, user_input):
-        planning_prompt = f"Design {available_calls}-call strategy for: {prompt}"
+    def plan_architecture(prompt, available_calls, user_input, output_fields):
+        # Uses universal prompt template from common/prompts.yaml
+        planning_prompt = prompt_manager.format_architecture_planning_prompt(
+            available_calls, model, prompt, user_input, output_fields
+        )
         plan_json = openai_client.call(planning_prompt)
         return ArchitecturePlan(calls, execution_order, dependencies)
     
@@ -265,3 +288,38 @@ class ValidationError(Exception):
 - Add new analysis workflow patterns
 
 This architecture provides a clean separation between configuration, business logic, and infrastructure, making the system highly maintainable and extensible.
+
+## Universal Prompt Configuration System (**NEW**)
+
+### How to Tune the System
+
+#### 🔧 **Tune ALL Agents** (Edit `common/prompts.yaml`)
+```yaml
+prompts:
+  architecture_planning: |
+    You are an expert AI architecture planner...
+    # Changing this affects EVERY agent type
+```
+
+#### 🎯 **Tune ONE Agent** (Edit `agents/business_evaluation.yaml`)  
+```yaml
+starter_prompt: |
+  You are a senior partner at a VC firm...
+  # Only affects business evaluation agent
+
+models:
+  analysis: "gpt-4o-mini"      # Agent can use different models
+  synthesis: "o1-preview"      # Mix and match as needed
+```
+
+#### 🔄 **How It Works**
+1. **Planning**: Uses common template + agent's output fields dynamically
+2. **Analysis**: Combines common template + agent's starter_prompt + dynamic user input
+3. **Synthesis**: Uses common template + agent's dynamic output requirements
+
+### Key Benefits
+- ✅ **Truly Universal**: No hardcoded business evaluation fields
+- ✅ **Easy Tuning**: One file (`common/prompts.yaml`) affects all agents  
+- ✅ **Agent Flexibility**: Each agent has its own expertise and models
+- ✅ **Dynamic Schema**: Input/output fields come from Google Sheets
+- ✅ **Maintainability**: Clear separation between platform and agent logic

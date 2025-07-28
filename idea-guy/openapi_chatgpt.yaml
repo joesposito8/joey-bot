@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
-  title: Joey Bot - Business Analysis API
-  version: "2.0.0"
-  description: Multi-call architecture business analysis with financial focus
+  title: Joey Bot - Universal AI Agent Platform  
+  version: "2.1.0"
+  description: Intelligent multi-call architecture business analysis with VC-level evaluation and dynamic configuration system
 
 servers:
   - url: https://idea-guy-func.azurewebsites.net
@@ -104,10 +104,10 @@ paths:
                           example: 3.00
                         model:
                           type: string
-                          example: "o4-mini-deep-research"
+                          example: "gpt-4o-mini"
                         description:
                           type: string
-                          example: "3 coordinated calls with intelligent architecture planning"
+                          example: "3 coordinated calls with intelligent architecture planning and web search capabilities"
                         time_estimate:
                           type: string
                           example: "15-20 minutes"
@@ -122,7 +122,7 @@ paths:
     post:
       operationId: executeAnalysis
       summary: Execute business analysis
-      description: Start analysis with selected budget tier using multi-call architecture
+      description: Start VC-level business analysis with selected budget tier using intelligent multi-call architecture with web search and reasoning capabilities
       requestBody:
         required: true
         content:
@@ -196,13 +196,13 @@ paths:
                     example: "7"
                   "Novelty_Rationale":
                     type: string
-                    example: "Moderate novelty with AI personalization features"
+                    example: "Solid differentiation with AI personalization and dietary restriction focus. Market research shows 32M Americans have food allergies, creating clear demand for specialized meal kit services."
                   "Feasibility_Rating":
                     type: string
                     example: "8"
                   "Feasibility_Rationale":
                     type: string
-                    example: "Technology stack is mature with proven frameworks"
+                    example: "Strong technical feasibility. AI algorithms for nutritional analysis and recipe generation are achievable with current ML frameworks. Supply chain partnerships with ingredient suppliers present operational challenges but established meal kit logistics exist."
                   "Effort_Rating":
                     type: string
                     example: "6"
@@ -214,22 +214,22 @@ paths:
                     example: "8"
                   "Impact_Rationale":
                     type: string
-                    example: "Large market with strong growth potential"
+                    example: "Significant market opportunity. TAM: $150B global meal kit market. SAM: $15B dietary restriction segment. Target millennials/Gen Z show 80% willingness to pay premium for personalized health solutions."
                   "Risk_Rating":
                     type: string
                     example: "5"
                   "Risk_Rationale":
                     type: string
-                    example: "Moderate risk due to competitive landscape"
+                    example: "Key risks include competitive pressure from HelloFresh/Blue Apron, supply chain complexity for dietary-specific ingredients, and customer acquisition costs in saturated market. Mitigation through strong differentiation and partnerships."
                   "Overall_Rating":
                     type: string
                     example: "7"
                   "Overall_Rationale":
                     type: string
-                    example: "Strong feasibility and impact balanced against moderate novelty"
+                    example: "Promising investment opportunity with strong market fundamentals and clear differentiation. Solid execution capability balanced against competitive risks. Recommend proceeding with MVP development."
                   "Analysis_Summary":
                     type: string
-                    example: "Promising idea with good market potential and feasible implementation"
+                    example: "AI-powered personalized meal kit service targeting dietary restrictions shows strong market opportunity in $15B segment. Differentiated positioning with solid technical feasibility, though competitive landscape requires careful execution. Overall rating 7/10 supports investment consideration."
                   "Expected_Value_Analysis":
                     type: string
                     example: "Revenue projections: Year 1 $2M, Year 5 $15M. DCF NPV $85M at 12% discount. Expected IRR 35-45%. Comparable SaaS companies trade at 8-12x revenue multiples."

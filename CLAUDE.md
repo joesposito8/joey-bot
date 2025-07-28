@@ -1,11 +1,11 @@
 # Joey-Bot Project Documentation Directory
 
-**Last Updated**: 2025-01-27  
-**Status**: Universal AI Agent Platform (Post-Legacy Cleanup)
+**Last Updated**: 2025-01-28  
+**Status**: Universal AI Agent Platform with Universal Prompt Configuration System
 
 ## Quick Reference
 
-Joey-Bot is a Universal AI Agent Platform that provides business idea evaluation through Azure Functions with Google Sheets storage and OpenAI analysis using dynamic configuration.
+Joey-Bot is a Universal AI Agent Platform that provides AI-powered analysis through Azure Functions with Google Sheets storage and OpenAI multi-call architecture. **NEW**: Features universal prompt templates that work with any agent type while allowing agent-specific customization.
 
 ## 📚 Documentation Structure
 

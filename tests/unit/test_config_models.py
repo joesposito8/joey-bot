@@ -139,6 +139,6 @@ class TestFullAgentConfig:
         instructions = config.generate_instructions()
         
         # Verify content
-        assert "Test Agent" in instructions
+        assert "test agent" in instructions
         assert "Idea_Overview" in instructions
         assert "Brief desc" in instructions

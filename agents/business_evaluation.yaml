@@ -83,8 +83,10 @@ budget_tiers:
       - "Implementation roadmap with timeline suggestions"
       - "Cost-benefit analysis with financial projections"
 
-# OpenAI model configuration
-model: "gpt-4o-mini"
+# Agent-specific model configuration
+models:
+  analysis: "gpt-4o-mini"           # Model for individual analysis calls
+  synthesis: "gpt-4o-mini"         # Model for final synthesis
 
 # Workflow configuration
 workflow_template: "multi_call_architecture"

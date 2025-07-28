@@ -29,7 +29,8 @@ class ArchitecturePlan:
 def get_architecture_planning_prompt(
     original_prompt: str, 
     available_calls: int,
-    user_input: Dict[str, Any]
+    user_input: Dict[str, Any],
+    output_fields: list
 ) -> str:
     """Generate universal prompt for planning optimal call architecture.
     
@@ -37,79 +38,20 @@ def get_architecture_planning_prompt(
         original_prompt: The analysis prompt to execute (from agent config)
         available_calls: Number of API calls available
         user_input: User's input data
+        output_fields: List of output field names
         
     Returns:
         Universal planning prompt for architecture design
     """
-    # Format user input generically
-    input_summary = "\n".join([f"{key}: {value}" for key, value in user_input.items()])
+    from .prompt_manager import prompt_manager
     
-    return f"""You are an expert AI architecture planner. Your job is to design the optimal execution strategy to achieve the most accurate analysis using the available resources.
-
-RESOURCES: {available_calls} total API calls to gpt-4o-mini
-CONSTRAINTS: 
-- Maximum 4 calls can run simultaneously
-- Each call tree must end with a summarizer that attempts to answer the original prompt
-- You must use ALL available calls efficiently
-- Focus on comprehensive analysis across all required dimensions
-
-ORIGINAL ANALYSIS PROMPT TO EXECUTE:
-{original_prompt}
-
-USER INPUT DATA:
-{input_summary}
-
-ANALYSIS REQUIREMENTS:
-- Provide comprehensive analysis across all required output fields
-- Use available calls to maximize depth and accuracy
-- Ensure final output matches the required format structure
-
-TASK: Design the optimal call architecture as a JSON plan with this exact structure:
-
-{{
-    "strategy_explanation": "Brief explanation of your approach",
-    "total_calls": {available_calls},
-    "max_concurrent": 4,
-    "calls": [
-        {{
-            "call_id": "call_1",
-            "purpose": "What this call will focus on",
-            "prompt": "Specific prompt for this call focusing on [purpose]",
-            "dependencies": [],
-            "is_summarizer": false
-        }},
-        {{
-            "call_id": "call_2", 
-            "purpose": "Another focused analysis area",
-            "prompt": "Specific prompt for this call",
-            "dependencies": ["call_1"],
-            "is_summarizer": false
-        }},
-        {{
-            "call_id": "final_summary",
-            "purpose": "Synthesize all findings into final analysis", 
-            "prompt": "Synthesize the findings from previous calls into the complete analysis format required by the original prompt",
-            "dependencies": ["call_1", "call_2"],
-            "is_summarizer": true
-        }}
-    ],
-    "execution_order": [
-        ["call_1"],
-        ["call_2"], 
-        ["final_summary"]
-    ]
-}}
-
-OPTIMIZATION STRATEGIES for {available_calls} calls:
-- 1 call: Single comprehensive analysis covering all required dimensions
-- 3 calls: Multi-faceted analysis with specialized focus areas, then synthesize
-- 5+ calls: Deep specialized analysis across multiple dimensions with comprehensive synthesis
-
-CRITICAL: The final summarizer MUST provide complete analysis covering all required output fields as specified in the original prompt.
-
-Ensure each non-summarizer call focuses on a specific aspect that contributes unique value to the overall analysis.
-
-Respond with ONLY the JSON plan, no other text."""
+    return prompt_manager.format_architecture_planning_prompt(
+        available_calls=available_calls,
+        model=prompt_manager.get_model('architecture_planning'),
+        original_prompt=original_prompt,
+        user_input=user_input,
+        output_fields=output_fields
+    )
 
 
 class MultiCallArchitecture:
@@ -128,7 +70,8 @@ class MultiCallArchitecture:
         self, 
         original_prompt: str,
         available_calls: int,
-        user_input: Dict[str, Any]
+        user_input: Dict[str, Any],
+        output_fields: list
     ) -> ArchitecturePlan:
         """Plan optimal architecture for given constraints.
         
@@ -136,6 +79,7 @@ class MultiCallArchitecture:
             original_prompt: Analysis prompt to execute (from agent config)
             available_calls: Number of API calls available
             user_input: User's input data
+            output_fields: List of output field names
             
         Returns:
             Complete architecture plan
@@ -146,12 +90,15 @@ class MultiCallArchitecture:
         try:
             # Generate planning prompt
             planning_prompt = get_architecture_planning_prompt(
-                original_prompt, available_calls, user_input
+                original_prompt, available_calls, user_input, output_fields
             )
             
-            # Get architecture plan from o4-mini-high (using gpt-4o-mini for now)
+            # Get architecture plan using configured model
+            from .prompt_manager import prompt_manager
+            planning_model = prompt_manager.get_model('architecture_planning')
+            
             response = self.client.responses.create(
-                model="gpt-4o-mini",
+                model=planning_model,
                 input=[{"role": "user", "content": [{"type": "input_text", "text": planning_prompt}]}],
                 background=False  # Synchronous for planning
             )
@@ -171,6 +118,9 @@ class MultiCallArchitecture:
                 cleaned_text = cleaned_text.strip()
                 
                 plan_data = json.loads(cleaned_text)
+                
+                # Log the plan for debugging
+                logging.info(f"Architecture plan received: {json.dumps(plan_data, indent=2)}")
                 
                 # Convert to ArchitecturePlan
                 calls = []
@@ -194,65 +144,15 @@ class MultiCallArchitecture:
                 
         except Exception as e:
             logging.error(f"Architecture planning failed: {str(e)}")
-            # Fallback to simple sequential plan
-            return self._create_fallback_plan(original_prompt, available_calls)
+            raise ValueError(f"Architecture planning failed: {str(e)}")
     
-    def _create_fallback_plan(self, original_prompt: str, available_calls: int) -> ArchitecturePlan:
-        """Create simple fallback plan if architecture planning fails.
-        
-        Args:
-            original_prompt: Analysis prompt
-            available_calls: Number of calls available
-            
-        Returns:
-            Simple sequential architecture plan
-        """
-        if available_calls == 1:
-            calls = [CallPlan(
-                call_id="single_analysis",
-                prompt=original_prompt,
-                dependencies=[],
-                is_summarizer=True,
-                purpose="Complete comprehensive analysis"
-            )]
-            execution_order = [["single_analysis"]]
-        else:
-            # Simple sequential approach
-            calls = []
-            for i in range(available_calls - 1):
-                calls.append(CallPlan(
-                    call_id=f"analysis_{i+1}",
-                    prompt=f"Focus on aspect {i+1} of: {original_prompt}",
-                    dependencies=[f"analysis_{i}"] if i > 0 else [],
-                    is_summarizer=False,
-                    purpose=f"Analysis aspect {i+1}"
-                ))
-            
-            # Final summarizer
-            calls.append(CallPlan(
-                call_id="final_summary", 
-                prompt=f"Synthesize all previous analysis into: {original_prompt}",
-                dependencies=[f"analysis_{i+1}" for i in range(available_calls - 1)],
-                is_summarizer=True,
-                purpose="Final synthesis of all analysis"
-            ))
-            
-            # Sequential execution
-            execution_order = [[f"analysis_{i+1}"] for i in range(available_calls - 1)]
-            execution_order.append(["final_summary"])
-        
-        return ArchitecturePlan(
-            total_calls=available_calls,
-            max_concurrent=self.max_concurrent_calls,
-            calls=calls,
-            execution_order=execution_order
-        )
     
     def execute_plan(
         self, 
         plan: ArchitecturePlan,
         tier_config,
-        user_input: Dict[str, Any]
+        user_input: Dict[str, Any],
+        agent_config
     ) -> str:
         """Execute the architecture plan with full multi-call support.
         
@@ -260,6 +160,7 @@ class MultiCallArchitecture:
             plan: Architecture plan to execute
             tier_config: Budget tier configuration
             user_input: User's input for cost logging
+            agent_config: FullAgentConfig for dynamic prompt generation
             
         Returns:
             Job ID for the main analysis (for polling)
@@ -279,7 +180,7 @@ class MultiCallArchitecture:
                 logging.info(f"Executing batch {batch_index + 1}/{len(plan.execution_order)}: {batch}")
                 
                 # Execute calls in this batch concurrently
-                batch_results = self._execute_batch(batch, plan, tier_config, call_results)
+                batch_results = self._execute_batch(batch, plan, tier_config, call_results, user_input, agent_config)
                 call_results.update(batch_results)
                 
                 # Log each call's cost
@@ -321,14 +222,23 @@ class MultiCallArchitecture:
             final_call = None
             final_job_id = None
             
+            # Debug logging
+            summarizer_calls = [call for call in plan.calls if call.is_summarizer]
+            logging.info(f"Looking for summarizer calls. Found {len(summarizer_calls)}: {[c.call_id for c in summarizer_calls]}")
+            logging.info(f"Call results available: {list(call_results.keys())}")
+            
             for call in plan.calls:
                 if call.is_summarizer:
                     final_call = call
-                    final_job_id = call_results[call.call_id]["job_id"]
-                    break
+                    if call.call_id in call_results:
+                        final_job_id = call_results[call.call_id]["job_id"]
+                        logging.info(f"Found final summarizer job ID: {final_job_id}")
+                        break
+                    else:
+                        logging.error(f"Summarizer call {call.call_id} not found in call_results")
             
             if not final_job_id:
-                raise ValueError("No final summarizer call found in execution results")
+                raise ValueError(f"Summarizer call failed or not found. Available calls: {list(call_results.keys())}")
             
             logging.info(f"Successfully executed {plan.total_calls}-call architecture plan. Final job ID: {final_job_id}")
             return final_job_id
@@ -342,7 +252,9 @@ class MultiCallArchitecture:
         batch: List[str], 
         plan: ArchitecturePlan, 
         tier_config,
-        previous_results: Dict[str, Any]
+        previous_results: Dict[str, Any],
+        user_input: Dict[str, Any],
+        agent_config
     ) -> Dict[str, Any]:
         """Execute a batch of calls concurrently.
         
@@ -351,6 +263,8 @@ class MultiCallArchitecture:
             plan: Overall architecture plan
             tier_config: Budget tier configuration
             previous_results: Results from previous batches
+            user_input: User's input data for prompt generation
+            agent_config: FullAgentConfig for dynamic prompt generation
             
         Returns:
             Dictionary mapping call_id to execution result
@@ -380,10 +294,8 @@ class MultiCallArchitecture:
             for call_id in batch:
                 call_plan = next(c for c in plan.calls if c.call_id == call_id)
                 
-                # Inject results from dependencies into the prompt
-                enhanced_prompt = self._inject_dependencies(
-                    call_plan.prompt, call_plan.dependencies, previous_results
-                )
+                # Generate prompt for this call
+                enhanced_prompt = self._generate_call_prompt(call_plan, user_input, agent_config)
                 
                 # Submit the API call
                 future = executor.submit(
@@ -409,6 +321,25 @@ class MultiCallArchitecture:
                     }
         
         return batch_results
+    
+    def _generate_call_prompt(self, call_plan, user_input, agent_config) -> str:
+        """Generate appropriate prompt for a call."""
+        from .prompt_manager import prompt_manager
+        
+        if call_plan.is_summarizer and len(agent_config.schema.output_fields) > 1:
+            # For multi-field output, use synthesis template to generate JSON
+            return prompt_manager.format_synthesis_call_prompt(
+                previous_findings=call_plan.prompt,
+                output_fields=agent_config.schema.output_fields
+            )
+        else:
+            # Regular analysis call or single field output
+            return prompt_manager.format_analysis_call_prompt(
+                starter_prompt=agent_config.definition.starter_prompt,
+                call_purpose=call_plan.purpose,
+                user_input=user_input,
+                specific_instructions=call_plan.prompt
+            )
     
     def _execute_single_call(self, prompt: str, tier_config) -> Dict[str, Any]:
         """Execute a single API call.
@@ -491,15 +422,17 @@ def create_multi_call_analysis(
     architecture = MultiCallArchitecture(openai_client)
     
     # Plan the architecture
+    output_fields = [field.name for field in agent_config.schema.output_fields]
     plan = architecture.plan_architecture(
         original_prompt=original_prompt,
         available_calls=tier_config.call_count,
-        user_input=user_input
+        user_input=user_input,
+        output_fields=output_fields
     )
     
     logging.info(f"Created {tier_config.call_count}-call architecture plan for {tier_config.level} tier")
     
     # Execute the plan
-    job_id = architecture.execute_plan(plan, tier_config, user_input)
+    job_id = architecture.execute_plan(plan, tier_config, user_input, agent_config)
     
     return job_id

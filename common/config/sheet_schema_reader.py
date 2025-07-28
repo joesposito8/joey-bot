@@ -78,7 +78,7 @@ class SheetSchemaReader:
                 
             field_type = row1[i].strip().lower()
             description = row2[i].strip() if row2[i].strip() else f"Description for {row3[i]}"
-            column_name = row3[i].strip()
+            column_name = row3[i].strip().replace(' ', '_')
             
             # Normalize and validate field type (case insensitive)
             if field_type == "user":

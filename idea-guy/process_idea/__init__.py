@@ -1,12 +1,12 @@
 from typing import Dict
 import azure.functions as func
 import datetime
+import json
 import logging
 import os
 
 from common import get_openai_client, get_google_sheets_client, get_spreadsheet
 from common.agent_service import AnalysisService
-from common.utils import extract_json_from_text
 from common.http_utils import build_json_response, build_error_response, is_testing_mode, log_and_return_error
 from common.cost_tracker import log_openai_cost, calculate_cost_from_usage
 
@@ -44,6 +44,40 @@ def get_lazy_spreadsheet():
             raise ValueError("IDEA_GUY_SHEET_ID environment variable is required")
         _spreadsheet = get_spreadsheet(spreadsheet_id, get_lazy_sheets_client())
     return _spreadsheet
+
+
+def _extract_json_from_response(response_text: str, output_fields) -> Dict[str, str] | None:
+    """Extract JSON from OpenAI response, handling markdown formatting."""
+    try:
+        # Clean response text - remove markdown code blocks if present
+        cleaned_text = response_text.strip()
+        if cleaned_text.startswith('```json'):
+            cleaned_text = cleaned_text[7:]  # Remove ```json
+        if cleaned_text.startswith('```'):
+            cleaned_text = cleaned_text[3:]   # Remove ```
+        if cleaned_text.endswith('```'):
+            cleaned_text = cleaned_text[:-3]  # Remove trailing ```
+        cleaned_text = cleaned_text.strip()
+        
+        # Parse JSON
+        json_data = json.loads(cleaned_text)
+        
+        # Validate that all expected fields are present
+        expected_fields = [field.name for field in output_fields]
+        for field in expected_fields:
+            if field not in json_data:
+                logging.warning(f"Missing expected field '{field}' in JSON response")
+                return None
+        
+        # Convert all values to strings for spreadsheet compatibility
+        return {key: str(value) for key, value in json_data.items()}
+        
+    except json.JSONDecodeError as e:
+        logging.error(f"Failed to parse JSON from response: {e}")
+        return None
+    except Exception as e:
+        logging.error(f"Unexpected error extracting JSON: {e}")
+        return None
 
 
 def get_idea_analysis_result(job_id: str, service: AnalysisService) -> Dict[str, str] | None:
@@ -101,16 +135,8 @@ def get_idea_analysis_result(job_id: str, service: AnalysisService) -> Dict[str,
                             response_str = str(first_content.text)
                             logging.info(f"Successfully extracted response text, length: {len(response_str)}")
                             
-                            # Extract JSON from the response text using dynamic schema
-                            output_fields = [field.name for field in service.agent_config.schema.output_fields]
-                            
-                            # Create mock object for compatibility with extract_json_from_text
-                            class MockOutput:
-                                def __init__(self, fields):
-                                    self.columns = {field: f"Dynamic field {field}" for field in fields}
-                            
-                            mock_output = MockOutput(output_fields)
-                            json_result = extract_json_from_text(response_str, mock_output)
+                            # Extract JSON from the response text (handles markdown formatting)
+                            json_result = self._extract_json_from_response(response_str, service.agent_config.schema.output_fields)
 
                             if json_result:
                                 return json_result
@@ -197,18 +223,34 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         # Check for mock job (testing mode)
         if job_id.startswith("mock_"):
             logging.info(f"Processing mock job: {job_id}")
+            
+            # Initialize service to get dynamic output fields
+            try:
+                service = AnalysisService(os.environ['IDEA_GUY_SHEET_ID'])
+                output_fields = [field.name for field in service.agent_config.schema.output_fields]
+                
+                # Generate mock results for all output fields dynamically
+                mock_results = {}
+                for field in output_fields:
+                    if "rating" in field.lower():
+                        mock_results[field] = "7"
+                    else:
+                        mock_results[field] = f"Mock analysis for {field} - this would contain actual evaluation in production"
+                
+            except Exception as e:
+                logging.warning(f"Could not generate dynamic mock results: {e}")
+                # Fallback to generic mock
+                mock_results = {
+                    "mock_field": "Mock analysis - actual fields determined by agent configuration"
+                }
+            
             return build_json_response({
                 "status": "completed",
                 "message": "[TESTING MODE] Mock analysis completed",
                 "job_id": job_id,
                 "testing_mode": True,
                 "note": "This is a mock response for testing - no actual analysis was performed",
-                "mock_results": {
-                    "Novelty_Rating": "7",
-                    "Novelty_Rationale": "Mock analysis - this would contain actual evaluation in production",
-                    "Overall_Rating": "7",
-                    "Analysis_Summary": "This is a mock analysis result for testing purposes"
-                },
+                **mock_results,  # Spread dynamic mock results
                 "timestamp": datetime.datetime.now().isoformat(),
             })
         

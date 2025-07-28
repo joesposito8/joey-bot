@@ -58,18 +58,32 @@ class AnalysisService:
     def agent_config(self) -> FullAgentConfig:
         """Lazy-initialized agent configuration from YAML + Google Sheets."""
         if self._agent_config is None:
-            # Find project root by looking for pyproject.toml
+            # Find project root - try multiple strategies for different environments
             current_path = Path(__file__).resolve()
             project_root = None
             
-            # Walk up the directory tree to find project root
+            # Strategy 1: Look for pyproject.toml (local development)
             for parent in current_path.parents:
                 if (parent / 'pyproject.toml').exists():
                     project_root = parent
                     break
             
+            # Strategy 2: Look for agents/ directory (Azure Functions deployment)
             if project_root is None:
-                raise ValueError("Could not find project root (pyproject.toml not found)")
+                for parent in current_path.parents:
+                    if (parent / 'agents' / 'business_evaluation.yaml').exists():
+                        project_root = parent
+                        break
+            
+            # Strategy 3: Assume agents/ is at same level as current directory structure
+            if project_root is None:
+                # In Azure Functions, common/ and agents/ are typically siblings
+                common_parent = current_path.parent.parent  # Go up from common/
+                if (common_parent / 'agents' / 'business_evaluation.yaml').exists():
+                    project_root = common_parent
+            
+            if project_root is None:
+                raise ValueError("Could not find project root or agents/business_evaluation.yaml file")
             
             yaml_path = project_root / 'agents' / 'business_evaluation.yaml'
             agent_def = AgentDefinition.from_yaml(yaml_path)
