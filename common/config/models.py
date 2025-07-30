@@ -222,11 +222,15 @@ Provide your analysis in exactly this JSON format:
 
     def get_budget_tiers(self) -> List[BudgetTierConfig]:
         """Get universal budget tiers for all agents."""
-        if not self.universal_config or 'budget_tiers' not in self.universal_config:
+        if not self.universal_config or 'platform' not in self.universal_config:
+            return []
+            
+        platform_config = self.universal_config['platform']
+        if 'budget_tiers' not in platform_config:
             return []
         
         tiers = []
-        for tier_data in self.universal_config['budget_tiers']:
+        for tier_data in platform_config['budget_tiers']:
             tiers.append(BudgetTierConfig(
                 name=tier_data['name'],
                 price=float(tier_data['price']),
