@@ -2,7 +2,12 @@
 
 **Last Updated**: 2025-01-30  
 **System Status**: RUTHLESS REDESIGN - Documentation Complete, Implementation Ready  
-**Recent Changes**: Created PROJECT_VISION.md, added 5 new universal tests, deleted 29 legacy tests <!-- Updated to reflect vision initialization and test restructuring in recent commits -->
+**Recent Changes**: 
+- Created UniversalAgentEngine with service account handling
+- Added consolidated error types in errors.py
+- Created platform.yaml for universal configuration
+- Implemented Google Sheets auth from local.settings.json
+<!-- Updated to reflect universal agent engine implementation in commits fba50e3, 9886b2e -->
 
 ## Overview
 
@@ -19,6 +24,18 @@ The Universal AI Agent Platform enables ANY type of AI-powered analysis through 
 
 ## Universal Configuration Architecture
 
+### Four-Layer Configuration System
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    AUTH LAYER                                 │
+│  local.settings.json - API Keys & Service Accounts            │
+│  - OpenAI API key                                             │
+│  - Google Sheets service account                              │
+│  - Azure Functions settings                                    │
+└─────────────────────────────────────────────────────────────────┘
+                              ▲
+                              │
 ### Three-Layer Configuration System
 
 ```
