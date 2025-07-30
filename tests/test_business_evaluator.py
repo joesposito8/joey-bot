@@ -42,20 +42,15 @@ def mock_openai():
     return client
 
 
+import os
+
 @pytest.fixture
-def mock_sheets():
-    """Mock Google Sheets client."""
-    client = Mock()
-    sheet = Mock()
-    sheet.get_values.return_value = [
-        ["Field", "Type", "Description"],
-        ["idea", "user_input", "Business idea overview"],
-        ["motivation", "user_input", "Why this idea?"],
-        ["market_size", "bot_output", "Market size analysis"],
-        ["risk_score", "bot_output", "Risk assessment score"]
-    ]
-    client.open_by_url.return_value = sheet
-    return client
+def sheet_id():
+    """Get test sheet ID from environment."""
+    sheet_id = os.environ.get("IDEA_GUY_SHEET_ID")
+    if not sheet_id:
+        pytest.skip("IDEA_GUY_SHEET_ID not set")
+    return sheet_id
 
 
 class TestBusinessEvaluatorConfig:
@@ -124,10 +119,13 @@ class TestBusinessAnalysisExecution:
         mock_get_openai.return_value = mock_openai
         
         engine = UniversalAgentEngine()
+        agent = engine.load_agent("business_evaluation")
+        tier = next(t for t in agent.get_budget_tiers() if t.name == "standard")
+        
         plan = engine._plan_execution(
-            agent_id="business_evaluation",
-            user_input={"idea": "AI fitness app"},
-            budget_tier="standard"
+            agent=agent,
+            tier=tier,
+            user_input={"idea": "AI fitness app"}
         )
         
         assert plan.total_calls == 3
@@ -175,17 +173,12 @@ class TestBusinessAnalysisExecution:
 class TestBusinessSchemaValidation:
     """Test business evaluator schema validation."""
     
-    @patch("common.get_google_sheets_client")
-    def test_invalid_schema_detection(self, mock_get_sheets, mock_sheets):
+    def test_invalid_schema_detection(self):
         """Test detection of invalid schema."""
         from common.engine import UniversalAgentEngine
         from common.errors import SchemaError
         
-        mock_sheets.get_values.return_value = [
-            ["Invalid", "Schema", "Format"]
-        ]
-        mock_get_sheets.return_value = mock_sheets
-        
         engine = UniversalAgentEngine()
         with pytest.raises(SchemaError):
-            engine.load_agent("business_evaluation")
+            # Try to load agent with invalid sheet URL
+            engine.load_agent("test_invalid_schema")
