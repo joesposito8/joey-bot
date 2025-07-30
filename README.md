@@ -212,7 +212,7 @@ For detailed technical information:
 - **[CLAUDE.md](CLAUDE.md)** - Documentation directory and quick reference
 - **[System Architecture](docs/SYSTEM_ARCHITECTURE.md)** - Technical implementation with exact file locations
 - **[Developer Guide](docs/DEVELOPER_GUIDE.md)** - API reference, testing, and troubleshooting
-- **[Implementation Plan](IMPLEMENTATION_PLAN.md)** - Roadmap to universal platform
+- **[Task List](docs/TASKLIST.md)** - Current implementation roadmap and priorities
 - **[Project Vision](PROJECT_VISION.md)** - Mission, scope, and stakeholder context
 
 ---

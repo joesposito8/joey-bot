@@ -16,10 +16,10 @@ Joey-Bot is transforming into a **Universal AI Agent Platform** where ANY type o
    - **Contains**: Current vs planned architecture, component tracing, universal system design
    - **Use When**: Understanding how the system works, finding code locations, making changes
 
-2. **[Implementation Plan](IMPLEMENTATION_PLAN.md)** 📋
-   - **Purpose**: Step-by-step transformation roadmap from current to universal system
-   - **Contains**: Documentation → Tests → System rebuild strategy with specific tasks
-   - **Use When**: Executing the universal platform implementation
+2. **[Task List](docs/TASKLIST.md)** 📋
+   - **Purpose**: Current implementation roadmap with actionable tasks and priorities
+   - **Contains**: Completed work, pending tasks by phase, dependencies, risk mitigation
+   - **Use When**: Planning work, tracking progress, understanding what needs to be done
 
 3. **[Developer Guide](docs/DEVELOPER_GUIDE.md)** 🛠️
    - **Purpose**: Everything developers need: API, testing, troubleshooting in one place
@@ -36,8 +36,8 @@ Joey-Bot is transforming into a **Universal AI Agent Platform** where ANY type o
 ### For Developers (Code Changes)
 1. Read **[System Architecture](docs/SYSTEM_ARCHITECTURE.md)** to understand the codebase structure
 2. Use **[Developer Guide](docs/DEVELOPER_GUIDE.md)** for testing, debugging, and development workflow
-3. Follow **[Implementation Plan](IMPLEMENTATION_PLAN.md)** for universal platform tasks
-4. Check **[Task List](TASKLIST.md)** for current priorities and dependencies
+3. Check **[Task List](docs/TASKLIST.md)** for current priorities and implementation roadmap
+4. Follow **[Project Vision](PROJECT_VISION.md)** for long-term goals and context
 
 ## 🎯 Key System Facts
 
