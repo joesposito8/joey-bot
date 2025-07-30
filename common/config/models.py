@@ -5,6 +5,7 @@ Data models for the Universal AI Agent Platform configuration system.
 from dataclasses import dataclass
 from typing import List, Dict, Any
 import json
+from ..errors import ValidationError
 
 
 @dataclass
@@ -99,13 +100,26 @@ class FullAgentConfig:
         """Get agent ID from definition."""
         return self.definition.agent_id
         
-    def validate_input(self, user_input: Dict[str, Any]) -> bool:
-        """Validate input against schema requirements."""
+    @property
+    def starter_prompt(self) -> str:
+        """Get agent starter prompt from definition."""
+        return self.definition.starter_prompt
+        
+    def validate_input(self, user_input: Dict[str, Any]) -> None:
+        """Validate input against schema requirements.
+        
+        Args:
+            user_input: User's input data
+            
+        Raises:
+            ValidationError: If validation fails
+        """
         if not user_input:
-            return False
+            raise ValidationError("No input provided")
             
         # Use schema validation
-        return self.schema.validate_input(user_input)
+        if not self.schema.validate_input(user_input):
+            raise ValidationError("Missing required fields")
     
     def generate_instructions(self) -> str:
         """Generate instructions for the ChatGPT bot on how to collect user input."""
