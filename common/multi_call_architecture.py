@@ -43,11 +43,12 @@ def get_architecture_planning_prompt(
     Returns:
         Universal planning prompt for architecture design
     """
+    # Use universal prompt manager for architecture planning
     from .prompt_manager import prompt_manager
     
     return prompt_manager.format_architecture_planning_prompt(
         available_calls=available_calls,
-        model=prompt_manager.get_model('architecture_planning'),
+        model=agent_config.get_model('architecture_planning'),
         original_prompt=original_prompt,
         user_input=user_input,
         output_fields=output_fields
@@ -94,8 +95,7 @@ class MultiCallArchitecture:
             )
             
             # Get architecture plan using configured model
-            from .prompt_manager import prompt_manager
-            planning_model = prompt_manager.get_model('architecture_planning')
+            planning_model = agent_config.get_model('architecture_planning')
             
             response = self.client.responses.create(
                 model=planning_model,
@@ -150,7 +150,6 @@ class MultiCallArchitecture:
     def execute_plan(
         self, 
         plan: ArchitecturePlan,
-        tier_config,
         user_input: Dict[str, Any],
         agent_config
     ) -> str:
@@ -158,7 +157,6 @@ class MultiCallArchitecture:
         
         Args:
             plan: Architecture plan to execute
-            tier_config: Budget tier configuration
             user_input: User's input for cost logging
             agent_config: FullAgentConfig for dynamic prompt generation
             
@@ -180,7 +178,7 @@ class MultiCallArchitecture:
                 logging.info(f"Executing batch {batch_index + 1}/{len(plan.execution_order)}: {batch}")
                 
                 # Execute calls in this batch concurrently
-                batch_results = self._execute_batch(batch, plan, tier_config, call_results, user_input, agent_config)
+                batch_results = self._execute_batch(batch, plan, call_results, user_input, agent_config)
                 call_results.update(batch_results)
                 
                 # Log each call's cost
@@ -193,7 +191,7 @@ class MultiCallArchitecture:
                         "completion_tokens": 4000,
                         "total_tokens": 6500
                     }
-                    estimated_cost = calculate_cost_from_usage(tier_config.model, estimated_usage)
+                    estimated_cost = calculate_cost_from_usage(agent_config.get_model('analysis'), estimated_usage)
                     
                     # Log with execution plan context
                     plan_summary = {
@@ -207,8 +205,8 @@ class MultiCallArchitecture:
                     
                     log_openai_cost(
                         endpoint=f"multi_call_batch_{batch_index + 1}",
-                        model=tier_config.model,
-                        budget_tier=tier_config.level,
+                        model=agent_config.get_model('analysis'),
+                        budget_tier="agent-configured",
                         job_id=result["job_id"],
                         usage_data=estimated_usage,
                         cost_usd=estimated_cost if not is_testing_mode() else 0.0,
@@ -251,7 +249,6 @@ class MultiCallArchitecture:
         self, 
         batch: List[str], 
         plan: ArchitecturePlan, 
-        tier_config,
         previous_results: Dict[str, Any],
         user_input: Dict[str, Any],
         agent_config
@@ -261,7 +258,6 @@ class MultiCallArchitecture:
         Args:
             batch: List of call IDs to execute in this batch
             plan: Overall architecture plan
-            tier_config: Budget tier configuration
             previous_results: Results from previous batches
             user_input: User's input data for prompt generation
             agent_config: FullAgentConfig for dynamic prompt generation
@@ -301,7 +297,7 @@ class MultiCallArchitecture:
                 future = executor.submit(
                     self._execute_single_call,
                     enhanced_prompt,
-                    tier_config
+                    agent_config
                 )
                 future_to_call[future] = call_id
             
@@ -324,16 +320,18 @@ class MultiCallArchitecture:
     
     def _generate_call_prompt(self, call_plan, user_input, agent_config) -> str:
         """Generate appropriate prompt for a call."""
+# Now using universal prompt_manager for all prompts
+        
         from .prompt_manager import prompt_manager
         
         if call_plan.is_summarizer and len(agent_config.schema.output_fields) > 1:
-            # For multi-field output, use synthesis template to generate JSON
+            # For multi-field output, use universal synthesis template
             return prompt_manager.format_synthesis_call_prompt(
                 previous_findings=call_plan.prompt,
                 output_fields=agent_config.schema.output_fields
             )
         else:
-            # Regular analysis call or single field output
+            # Regular analysis call using universal template
             return prompt_manager.format_analysis_call_prompt(
                 starter_prompt=agent_config.definition.starter_prompt,
                 call_purpose=call_plan.purpose,
@@ -341,28 +339,28 @@ class MultiCallArchitecture:
                 specific_instructions=call_plan.prompt
             )
     
-    def _execute_single_call(self, prompt: str, tier_config) -> Dict[str, Any]:
+    def _execute_single_call(self, prompt: str, agent_config) -> Dict[str, Any]:
         """Execute a single API call.
         
         Args:
             prompt: The prompt to send
-            tier_config: Budget tier configuration
+            agent_config: Agent configuration containing model and tools
             
         Returns:
             Result dictionary with job_id and status
         """
         response = self.client.responses.create(
-            model=tier_config.model,
+            model=agent_config.get_model('analysis'),
             input=[{"role": "user", "content": [{"type": "input_text", "text": prompt}]}],
             background=True,
-            tools=tier_config.tools if tier_config.tools else None,
-            reasoning=tier_config.reasoning if tier_config.reasoning else None
+            tools=[{"type": "web_search_preview"}],  # Standard tools for all agents
+            reasoning={"summary": "auto"}  # Standard reasoning for all agents
         )
         
         return {
             "job_id": response.id,
             "status": "processing",
-            "model": tier_config.model
+            "model": agent_config.get_model('analysis')
         }
     
     def _inject_dependencies(
@@ -398,7 +396,7 @@ class MultiCallArchitecture:
 
 def create_multi_call_analysis(
     user_input: Dict[str, Any],
-    tier_config,
+    call_count: int,
     openai_client,
     agent_config
 ) -> str:
@@ -406,7 +404,7 @@ def create_multi_call_analysis(
     
     Args:
         user_input: User's input data
-        tier_config: Budget tier configuration with call_count
+        call_count: Number of API calls available for this tier
         openai_client: OpenAI client
         agent_config: FullAgentConfig instance for dynamic configuration
         
@@ -425,14 +423,14 @@ def create_multi_call_analysis(
     output_fields = [field.name for field in agent_config.schema.output_fields]
     plan = architecture.plan_architecture(
         original_prompt=original_prompt,
-        available_calls=tier_config.call_count,
+        available_calls=call_count,
         user_input=user_input,
         output_fields=output_fields
     )
     
-    logging.info(f"Created {tier_config.call_count}-call architecture plan for {tier_config.level} tier")
+    logging.info(f"Created {call_count}-call architecture plan")
     
     # Execute the plan
-    job_id = architecture.execute_plan(plan, tier_config, user_input, agent_config)
+    job_id = architecture.execute_plan(plan, user_input, agent_config)
     
     return job_id

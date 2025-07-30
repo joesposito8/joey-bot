@@ -65,7 +65,7 @@ class AgentDefinition:
     name: str                            # Human-readable name
     sheet_url: str                       # Google Sheet containing schema + data
     starter_prompt: str                  # Core agent expertise/personality
-    budget_tiers: List[BudgetTierConfig] # Available pricing options
+    models: Dict[str, str] = None        # Optional model overrides (uses platform defaults if None)
     
     @classmethod
     def from_yaml(cls, yaml_path):
@@ -78,34 +78,21 @@ class AgentDefinition:
         """Create AgentDefinition from dictionary data."""
         from .agent_definition import ValidationError
         
-        # Parse budget tiers with validation
-        budget_tiers = []
-        for tier in data.get('budget_tiers', []):
-            try:
-                budget_tiers.append(BudgetTierConfig(
-                    name=tier.get('name', ''),
-                    price=float(tier.get('price', 0)),
-                    calls=int(tier.get('calls', 1)),
-                    description=tier.get('description', ''),
-                    deliverables=tier.get('deliverables', [])
-                ))
-            except (ValueError, TypeError) as e:
-                raise ValidationError(f"Invalid budget tier configuration: {str(e)}")
-        
         return cls(
             agent_id=data['agent_id'],
             name=data['name'],
             sheet_url=data['sheet_url'],
             starter_prompt=data['starter_prompt'],
-            budget_tiers=budget_tiers
+            models=data.get('models', {})
         )
 
 
 @dataclass
 class FullAgentConfig:
-    """Complete agent = static definition + dynamic schema."""
+    """Complete agent = static definition + dynamic schema + universal config."""
     definition: AgentDefinition
     schema: SheetSchema
+    universal_config: Dict[str, Any] = None  # Universal prompts, models, budget_tiers
     
     def generate_instructions(self) -> str:
         """Generate instructions for the ChatGPT bot on how to collect user input."""
@@ -157,6 +144,34 @@ Provide your analysis in exactly this JSON format:
 {json.dumps(output_schema, indent=2)}
 """
     
+    def get_model(self, model_type: str) -> str:
+        """Get model for a specific function, with agent overrides."""
+        # Agent-specific override takes precedence
+        if self.definition.models and model_type in self.definition.models:
+            return self.definition.models[model_type]
+        
+        # Fall back to universal platform model
+        if self.universal_config and 'models' in self.universal_config:
+            return self.universal_config['models'].get(model_type, 'gpt-4o-mini')
+        
+        return 'gpt-4o-mini'  # Final fallback
+    
+    def get_budget_tiers(self) -> List[BudgetTierConfig]:
+        """Get universal budget tiers for all agents."""
+        if not self.universal_config or 'budget_tiers' not in self.universal_config:
+            return []
+        
+        tiers = []
+        for tier_data in self.universal_config['budget_tiers']:
+            tiers.append(BudgetTierConfig(
+                name=tier_data['name'],
+                price=float(tier_data['price']),
+                calls=int(tier_data['calls']),
+                description=tier_data['description'],
+                deliverables=tier_data.get('deliverables', [])
+            ))
+        return tiers
+    
     @classmethod
     def from_definition(cls, definition: AgentDefinition, sheets_client=None):
         """Create FullAgentConfig from definition and sheet URL."""
@@ -167,6 +182,10 @@ Provide your analysis in exactly this JSON format:
             from common import get_google_sheets_client
             sheets_client = get_google_sheets_client()
         
+        # Load universal configuration
+        from common.prompt_manager import prompt_manager
+        universal_config = prompt_manager._load_common_config()
+        
         reader = SheetSchemaReader(sheets_client)
         schema = reader.parse_sheet_schema(definition.sheet_url)
-        return cls(definition, schema)
+        return cls(definition, schema, universal_config)

@@ -7,8 +7,51 @@ platform:
 
 # Models used for different platform functions
 models:
-  architecture_planning: "o4-mini"    # Model for planning multi-call architecture
-  user_interaction: "gpt-4o-mini"        # Model for user input processing/validation
+  architecture_planning: "gpt-4o-mini"    # Model for planning multi-call architecture
+  analysis: "gpt-4o-mini"                 # Model for individual analysis calls
+  synthesis: "gpt-4o-mini"                # Model for final synthesis
+  user_interaction: "gpt-4o-mini"         # Model for user input processing/validation
+
+# Universal budget tiers - same pricing and capabilities for ALL agents
+budget_tiers:
+  - name: "basic"
+    price: 1.00
+    calls: 1
+    description: "1 optimized call with intelligent architecture planning"
+    time_estimate: "5-10 minutes"
+    deliverables:
+      - "Comprehensive analysis with detailed insights and specific rationales"
+      - "Deep research with specific examples and URLs where applicable"
+      - "Market analysis with multiple data sources where relevant"
+      - "Risk assessment with detailed considerations"
+      - "Implementation suggestions with timeline recommendations"
+      - "Cost-benefit analysis with projections where applicable"
+    
+  - name: "standard"
+    price: 3.00
+    calls: 3
+    description: "3 coordinated calls with intelligent architecture planning"
+    time_estimate: "15-20 minutes"
+    deliverables:
+      - "Comprehensive analysis with detailed insights and specific rationales"
+      - "Deep research with specific examples and URLs where applicable"
+      - "Market analysis with multiple data sources where relevant"
+      - "Risk assessment with detailed considerations"
+      - "Implementation suggestions with timeline recommendations"
+      - "Cost-benefit analysis with projections where applicable"
+    
+  - name: "premium"
+    price: 5.00
+    calls: 5
+    description: "5 coordinated calls with intelligent architecture planning"
+    time_estimate: "20-30 minutes"
+    deliverables:
+      - "Comprehensive analysis with detailed insights and specific rationales"
+      - "Deep research with specific examples and URLs where applicable"
+      - "Market analysis with multiple data sources where relevant"
+      - "Risk assessment with detailed considerations"
+      - "Implementation suggestions with timeline recommendations"
+      - "Cost-benefit analysis with projections where applicable"
   
 # Common prompts used across all agent types
 prompts:

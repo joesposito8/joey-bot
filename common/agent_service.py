@@ -5,7 +5,7 @@ import uuid
 from typing import Dict, Any
 
 from common import get_openai_client, get_google_sheets_client, get_spreadsheet
-from common.budget_config import BudgetConfigManager, TierConfig
+# Budget configuration now comes from agent YAML via FullAgentConfig
 from common.config import AgentDefinition, FullAgentConfig
 from pathlib import Path
 from common.http_utils import is_testing_mode
@@ -27,7 +27,7 @@ class AnalysisService:
             spreadsheet_id: Google Sheets spreadsheet ID
         """
         self.spreadsheet_id = spreadsheet_id
-        self.budget_manager = BudgetConfigManager()
+        # Budget management now handled via agent configuration
         self._openai_client = None
         self._sheets_client = None
         self._spreadsheet = None
@@ -123,7 +123,20 @@ class AnalysisService:
             Budget options with pricing details
         """
         self.validate_user_input(user_input)
-        pricepoints = self.budget_manager.calculate_pricepoints(user_input)
+        
+        # Generate pricing options from universal budget configuration
+        pricepoints = []
+        for tier in self.agent_config.get_budget_tiers():
+            pricepoints.append({
+                "level": tier.name,
+                "name": f"{tier.name.title()} Analysis",
+                "max_cost": tier.price,
+                "estimated_cost": tier.price,
+                "model": self.agent_config.get_model('analysis'),  # Use unified model resolution
+                "description": tier.description,
+                "deliverables": tier.deliverables,
+                "time_estimate": getattr(tier, 'time_estimate', f"{tier.calls * 5}-{tier.calls * 10} minutes")
+            })
         
         return {
             "agent_type": self.agent_config.definition.agent_id,
@@ -155,7 +168,17 @@ class AnalysisService:
         
         # Validate inputs
         self.validate_user_input(user_input)
-        tier_config = self.budget_manager.get_tier_config(budget_tier)
+        
+        # Find selected tier configuration from universal budget config
+        tier_config = None
+        for tier in self.agent_config.get_budget_tiers():
+            if tier.name == budget_tier:
+                tier_config = tier
+                break
+        
+        if tier_config is None:
+            available_tiers = [t.name for t in self.agent_config.get_budget_tiers()]
+            raise ValidationError(f"Invalid budget tier '{budget_tier}'. Available: {available_tiers}")
         
         # Check for testing mode
         if is_testing_mode():
@@ -164,7 +187,7 @@ class AnalysisService:
         
         # Start multi-call analysis architecture first to get the real job ID
         try:
-            analysis_job_id = create_multi_call_analysis(user_input, tier_config, self.openai_client, self.agent_config)
+            analysis_job_id = create_multi_call_analysis(user_input, tier_config.calls, self.openai_client, self.agent_config)
             logging.info(f"Started multi-call analysis job: {analysis_job_id}")
         except Exception as e:
             logging.error(f"Failed to start multi-call analysis: {str(e)}")

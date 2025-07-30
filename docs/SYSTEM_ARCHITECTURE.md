@@ -1,325 +1,341 @@
-# Joey-Bot System Architecture
+# Universal AI Agent Platform - System Architecture
 
 **Last Updated**: 2025-01-28  
-**System Status**: Universal AI Agent Platform with Universal Prompt Configuration System
+**System Status**: RUTHLESS REDESIGN - Configuration-Driven Universal Platform
 
 ## Overview
 
-Joey-Bot is a Universal AI Agent Platform that provides AI-powered analysis through Azure Functions with Google Sheets storage and OpenAI multi-call architecture. The system features:
+The Universal AI Agent Platform enables ANY type of AI-powered analysis through pure configuration. The same codebase handles business evaluation, HR analysis, legal review, medical assessment, or any other domain through YAML configuration files.
 
-- **Universal Prompt Configuration**: Shared prompts for all agents with agent-specific customization
-- **Dynamic Schema**: Input/output fields defined in Google Sheets, not hardcoded
-- **Multi-Agent Support**: Single codebase supports any analysis type (business, HR, product, etc.)
-- **Intelligent Architecture Planning**: AI-designed multi-call execution strategies
+**Core Principle**: Adding a new agent type requires ZERO code changes - only configuration files.
+
+**Key Features**:
+- **Universal Engine**: Single `UniversalAgentEngine` handles all agent types
+- **Platform Configuration**: Universal prompts, models, and budget tiers in `platform.yaml`
+- **Agent Personalities**: Domain expertise through agent-specific YAML files
+- **Dynamic Schemas**: Input/output fields defined in Google Sheets by users
+- **Clean APIs**: Existing Azure Functions work for ANY agent type
 
 ## Universal Configuration Architecture
 
+### Three-Layer Configuration System
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    PLATFORM LAYER                              │
+│  platform.yaml - Universal config for ALL agents              │
+│  - Universal prompts (planning, analysis, synthesis)           │
+│  - Universal budget tiers ($1/$3/$5)                          │  
+│  - Universal models (gpt-4o-mini for all functions)           │
+└─────────────────────────────────────────────────────────────────┘
+                              ▲
+                              │
+┌─────────────────────────────────────────────────────────────────┐
+│                     AGENT LAYER                                │
+│  agents/{name}.yaml - Agent-specific configuration             │
+│  - Agent personality and expertise                             │
+│  - Agent name and description                                  │
+│  - Optional model overrides                                    │
+│  - Google Sheet URL for schema                                 │
+└─────────────────────────────────────────────────────────────────┘
+                              ▲
+                              │
+┌─────────────────────────────────────────────────────────────────┐
+│                   DYNAMIC LAYER                                │
+│  Google Sheets Rows 1-3 - User-defined schema                  │
+│  - Input fields (what user provides)                           │
+│  - Output fields (what analysis generates)                     │
+│  - Field descriptions for prompts                              │
+└─────────────────────────────────────────────────────────────────┘
+```
+
 ### File Structure
 ```
-common/prompts.yaml              # 🔧 SHARED - Easy to tune for ALL agents
-common/prompt_manager.py         # Universal prompt management system
-agents/business_evaluation.yaml  # Agent-specific starter_prompt + models
-agents/[agent_name].yaml         # Future agents use same structure
+platform.yaml                   # Universal configuration for ALL agents
+agents/
+  business_evaluation.yaml       # Business evaluation agent
+  hr_analysis.yaml              # HR analysis agent (future)
+  legal_review.yaml             # Legal review agent (future)
+common/
+  engine.py                     # UniversalAgentEngine
+  config.py                     # Configuration loading system
+idea-guy/                       # Azure Functions (universal endpoints)
+  get_instructions/             # Works for ANY agent type
+  get_pricepoints/              # Universal budget tiers
+  execute_analysis/             # Universal analysis execution
+  process_idea/                 # Universal result retrieval
 ```
 
-### Configuration Hierarchy
-1. **Platform-Level** (`common/prompts.yaml`): Architecture planning, universal templates
-2. **Agent-Level** (`agents/*.yaml`): Starter prompts, models, expertise
-3. **Dynamic-Level** (Google Sheets): Input/output schema defined by users
+## Universal System Flow
 
-## System Flow (Semi-Pseudocode)
-
-### 1. User Interaction Flow
-
+### High-Level Flow
 ```
-User Request → Azure Function → AnalysisService → MultiCallArchitecture → OpenAI → Google Sheets
+User Request → Azure Function → UniversalAgentEngine → Configuration Loading → Analysis Execution → Results
 ```
 
-### 2. Detailed Request Processing
-
-#### A. Get Instructions Endpoint
+### Core Engine Architecture
 ```python
-GET /api/get_instructions
+class UniversalAgentEngine:
+    """Single engine handles ANY agent type through configuration"""
+    
+    def load_config(self, agent_id: str):
+        """Load complete config: platform + agent + dynamic schema"""
+        platform_config = load_yaml("platform.yaml")
+        agent_config = load_yaml(f"agents/{agent_id}.yaml") 
+        dynamic_schema = parse_google_sheet(agent_config.sheet_url)
+        return FullUniversalConfig(platform_config, agent_config, dynamic_schema)
+    
+    def execute_analysis(self, agent_id: str, user_input: dict, tier: str):
+        """Universal analysis execution for any agent type"""
+        config = self.load_config(agent_id)
+        config.validate_input(user_input)
+        
+        plan = self.plan_execution(config, tier, user_input)
+        job_id = self.execute_plan(config, plan, user_input)
+        return job_id
+```
+
+### Universal Endpoint Processing
+
+#### A. Get Instructions Endpoint (Universal)
+```python
+GET /api/get_instructions?agent={agent_id}
 │
 ├─ get_instructions/__init__.py:main()
-│  ├─ AnalysisService.get_user_instructions()
-│  │  ├─ Load agent config: AgentDefinition.from_yaml('agents/business_evaluation.yaml')
-│  │  ├─ Parse dynamic schema: SheetSchemaReader.parse_sheet_schema(sheet_url)
-│  │  ├─ Create FullAgentConfig(definition, schema)
-│  │  └─ Generate instructions: full_config.generate_instructions()
-│  └─ Return formatted instructions to user
+│  ├─ agent_id = req.params.get('agent')  # Required parameter
+│  ├─ engine = UniversalAgentEngine()
+│  ├─ config = engine.load_config(agent_id)  # Load platform + agent + schema
+│  ├─ instructions = config.generate_instructions()  # Uses dynamic schema
+│  └─ Return instructions for ANY agent type
 ```
 
-#### B. Get Price Points Endpoint
+#### B. Get Price Points Endpoint (Universal)
 ```python
 GET /api/get_pricepoints
 │
 ├─ get_pricepoints/__init__.py:main()
-│  ├─ AnalysisService.get_budget_options()
-│  │  ├─ BudgetConfigManager.get_all_tiers()
-│  │  │  └─ Return [Basic($1, 1 call), Standard($3, 3 calls), Premium($5, 5 calls)]
-│  │  └─ Format budget options with deliverables
-│  └─ Return budget tiers to user
+│  ├─ engine = UniversalAgentEngine()
+│  ├─ tiers = engine.platform_config.budget_tiers  # Universal tiers from platform.yaml
+│  │  └─ Return [Basic($1, 1 call), Standard($3, 3 calls), Premium($5, 5 calls)]
+│  └─ Same budget tiers for ALL agent types
 ```
 
-#### C. Execute Analysis Endpoint
+#### C. Execute Analysis Endpoint (Universal)
 ```python
 POST /api/execute_analysis
-Body: {user_input: {...}, budget_tier: "standard"}
+Body: {agent: "business_evaluation", input: {...}, tier: "standard"}
 │
 ├─ execute_analysis/__init__.py:main()
-│  ├─ validate_json_request(req) → Extract user_input & budget_tier
-│  ├─ AnalysisService.create_analysis_job(user_input, budget_tier)
-│  │  ├─ Load agent config: AgentDefinition + SheetSchemaReader → FullAgentConfig
-│  │  ├─ Validate input: full_config.schema.validate_input(user_input)
-│  │  ├─ Get tier config: BudgetConfigManager.get_tier_config(budget_tier)
-│  │  ├─ Generate job_id: f"job_{int(time.time())}"
-│  │  ├─ Write to Google Sheets:
-│  │  │  ├─ sheets_client.open_by_key(sheet_id)
-│  │  │  ├─ worksheet.append_row([job_id, timestamp, ...user_input_values])
-│  │  │  └─ Find cell with job_id for later updates
-│  │  └─ Execute analysis: create_multi_call_analysis()
-│  │     ├─ MultiCallArchitecture(openai_client)
-│  │     ├─ plan = architecture.plan_architecture(prompt, calls, user_input)
-│  │     │  ├─ Generate planning prompt with user input
-│  │     │  ├─ Call OpenAI: "Design optimal {N}-call execution strategy"
-│  │     │  └─ Parse JSON response → ArchitecturePlan
-│  │     └─ Execute plan: architecture.execute_plan(plan, tier_config, user_input)
-│  │        ├─ For each batch in execution_order:
-│  │        │  ├─ Execute calls concurrently (max 4 parallel)
-│  │        │  ├─ Log costs: CostTracker.log_openai_cost()
-│  │        │  └─ Store results for dependencies
-│  │        └─ Return final_job_id
-│  └─ Return {job_id: final_job_id} to user
+│  ├─ data = json.loads(req.get_body())
+│  ├─ engine = UniversalAgentEngine()
+│  ├─ job_id = engine.execute_analysis(data['agent'], data['input'], data['tier'])
+│  │  ├─ config = engine.load_config(data['agent'])  # Platform + agent + schema
+│  │  ├─ config.validate_input(data['input'])        # Dynamic validation
+│  │  ├─ plan = engine.plan_execution(config, data['tier'], data['input'])
+│  │  │  └─ Uses universal planning template from platform.yaml
+│  │  └─ job_id = engine.execute_plan(config, plan, data['input'])
+│  │     └─ Universal multi-call workflow engine
+│  └─ Return {job_id: job_id}
 ```
 
-#### D. Process Analysis Results
+#### D. Process Analysis Results (Universal)
 ```python
 GET /api/process_idea?id={job_id}
 │
 ├─ process_idea/__init__.py:main()
-│  ├─ Extract job_id from query params
-│  ├─ get_openai_client().responses.retrieve(job_id)
+│  ├─ job_id = req.params.get('id')
+│  ├─ response = openai_client.responses.retrieve(job_id)
 │  ├─ If analysis complete:
-│  │  ├─ Load agent config: FullAgentConfig for output parsing
-│  │  ├─ Parse result: extract_json_from_text(response)
-│  │  ├─ Update Google Sheets:
-│  │  │  ├─ Find row with job_id
-│  │  │  ├─ Write analysis results to output columns
-│  │  │  └─ Calculate column positions from schema
-│  │  └─ Return analysis results
+│  │  ├─ Extract agent_id from job metadata
+│  │  ├─ config = UniversalAgentEngine().load_config(agent_id)
+│  │  ├─ results = parse_results(response, config.dynamic_schema)
+│  │  ├─ Write results to Google Sheets using dynamic schema
+│  │  └─ Return structured results
 │  └─ Else return {status: "processing"}
 ```
 
-### 3. Core System Components
+## Key System Components
 
-#### Configuration System (`common/config/`)
+### Universal Configuration Loading
 ```python
-class FullAgentConfig:
-    definition: AgentDefinition     # Static YAML config  
-    schema: SheetSchema            # Dynamic from Google Sheets rows 1-3
+class FullUniversalConfig:
+    """Combines platform + agent + dynamic configuration"""
+    platform_config: PlatformConfig      # From platform.yaml
+    agent_config: AgentConfig            # From agents/{name}.yaml  
+    dynamic_schema: DynamicSchema        # From Google Sheets rows 1-3
 
-    def generate_analysis_prompt(user_input):
-        return f"{starter_prompt}\n\nInput: {user_input}\n\nOutput JSON: {output_schema}"
+    def validate_input(self, user_input: dict) -> bool:
+        """Validate input against dynamic schema"""
+        
+    def generate_instructions(self) -> str:
+        """Generate user instructions from dynamic schema"""
+        
+    def get_model(self, model_type: str) -> str:
+        """Get model with agent overrides: agent_config.models or platform_config.models"""
 ```
 
-#### Analysis Service (`common/agent_service.py`)
+### Universal Workflow Engine
 ```python
-class AnalysisService:
-    def create_analysis_job(user_input, budget_tier):
-        config = load_agent_config()
-        validate_input(config, user_input)
-        job_id = write_to_sheets(user_input)
-        analysis_job_id = execute_multi_call_analysis(config, user_input, tier)
-        return analysis_job_id
-```
-
-#### Multi-Call Architecture (`common/multi_call_architecture.py`)
-```python
-class MultiCallArchitecture:
-    def plan_architecture(prompt, available_calls, user_input, output_fields):
-        # Uses universal prompt template from common/prompts.yaml
-        planning_prompt = prompt_manager.format_architecture_planning_prompt(
-            available_calls, model, prompt, user_input, output_fields
-        )
-        plan_json = openai_client.call(planning_prompt)
-        return ArchitecturePlan(calls, execution_order, dependencies)
+class UniversalAgentEngine:
+    """Single engine handles ANY agent type through configuration"""
     
-    def execute_plan(plan, tier_config, user_input):
-        for batch in plan.execution_order:
-            results = execute_concurrent_batch(batch, previous_results)
-            log_costs_for_batch(results, tier_config)
-        return final_summarizer_job_id
+    def load_config(self, agent_id: str) -> FullUniversalConfig:
+        """Load complete configuration for any agent"""
+        
+    def plan_execution(self, config: FullUniversalConfig, tier: str, user_input: dict):
+        """Plan multi-call execution using universal templates"""
+        
+    def execute_plan(self, config: FullUniversalConfig, plan: ExecutionPlan, user_input: dict):
+        """Execute analysis plan with universal workflow"""
 ```
 
-#### Budget Management (`common/budget_config.py`)
-```python
-class BudgetConfigManager:
-    tiers = [
-        TierConfig("basic", $1.00, 1, "gpt-4o-mini"),
-        TierConfig("standard", $3.00, 3, "gpt-4o-mini"), 
-        TierConfig("premium", $5.00, 5, "gpt-4o-mini")
-    ]
+### Configuration Files
+
+**Platform Configuration** (`platform.yaml`):
+```yaml
+models:
+  planning: "gpt-4o-mini"
+  analysis: "gpt-4o-mini"
+  synthesis: "gpt-4o-mini"
+
+budget_tiers:
+  - {name: basic, price: 1.00, calls: 1}
+  - {name: standard, price: 3.00, calls: 3}
+  - {name: premium, price: 5.00, calls: 5}
+
+prompts:
+  planning_template: "Design optimal {calls}-call strategy..."
+  analysis_template: "{agent_personality}\nANALYSIS: {user_input}..."
+  synthesis_template: "Synthesize findings into {analysis_type}..."
 ```
 
-#### Cost Tracking (`common/cost_tracker.py`)
-```python
-def log_openai_cost(endpoint, model, tier, job_id, usage, cost, user_input):
-    log.info(f"{timestamp} | {endpoint} | {model} | {tier} | {job_id} | ${cost}")
-    append_to_file("openai_costs.log", log_entry)
+**Agent Configuration** (`agents/business_evaluation.yaml`):
+```yaml
+agent_id: "business_evaluation"
+name: "Business Idea Evaluator"
+sheet_url: "https://docs.google.com/spreadsheets/d/..."
+
+personality: |
+  You are a senior partner at a top-tier VC firm...
+
+# Optional model overrides
+models:
+  analysis: "gpt-4o"  # This agent uses better model
 ```
 
-## Data Flow
+## Universal Data Flow
 
-### 1. Configuration Loading
+### 1. Configuration Loading (Universal)
 ```
-agents/business_evaluation.yaml → AgentDefinition
+platform.yaml → PlatformConfig (models, budget_tiers, prompts)
      +
-Google Sheets rows 1-3 → SheetSchema  
+agents/{agent_id}.yaml → AgentConfig (personality, optional overrides)
+     +
+Google Sheets rows 1-3 → DynamicSchema (input/output fields)
      ↓
-FullAgentConfig (Combined Configuration)
+FullUniversalConfig (Complete Configuration)
 ```
 
-### 2. Request Processing
+### 2. Request Processing (Any Agent Type)
 ```
-User HTTP Request → Azure Function → AnalysisService → Configuration → Validation → Processing
-```
-
-### 3. Analysis Execution
-```
-MultiCallArchitecture.plan_architecture() → ArchitecturePlan
-     ↓
-MultiCallArchitecture.execute_plan() → Concurrent API calls → Results aggregation
+User Request → Azure Function → UniversalAgentEngine → Config Loading → Validation → Analysis
 ```
 
-### 4. Data Storage
+### 3. Universal Analysis Execution
 ```
-User Input → Google Sheets row (job_id, timestamp, input_fields...)
+UniversalAgentEngine.plan_execution() → Uses platform.yaml templates
      ↓
-Analysis Results → Google Sheets row (...output_fields)
+UniversalAgentEngine.execute_plan() → Multi-call workflow → Results
+```
+
+### 4. Universal Data Storage
+```
+User Input → Google Sheets (dynamic schema)
+     ↓
+Analysis Results → Google Sheets (dynamic output fields)
      ↓  
 Cost Logging → openai_costs.log
 ```
 
 ## Key File Locations
 
-### Azure Functions (Entry Points)
-- `idea-guy/execute_analysis/__init__.py` - Start analysis job
-- `idea-guy/process_idea/__init__.py` - Get analysis results
-- `idea-guy/get_instructions/__init__.py` - Get user instructions
-- `idea-guy/get_pricepoints/__init__.py` - Get budget options
-- `idea-guy/read_sheet/__init__.py` - Read Google Sheets data
+### Universal Configuration
+- `platform.yaml` - **NEW**: Universal configuration for ALL agents
+- `agents/business_evaluation.yaml` - **UPDATED**: Agent-specific configuration only
+- `agents/{agent_name}.yaml` - **FUTURE**: Additional agent types
 
-### Core Business Logic
-- `common/agent_service.py` - Main orchestration service
-- `common/multi_call_architecture.py` - Multi-call analysis execution
-- `common/config/agent_definition.py` - YAML configuration loading
-- `common/config/sheet_schema_reader.py` - Dynamic schema parsing
-- `common/config/models.py` - Core data models
+### Azure Functions (Universal Endpoints)
+- `idea-guy/get_instructions/__init__.py` - **UPDATED**: Universal instructions for any agent
+- `idea-guy/get_pricepoints/__init__.py` - **UPDATED**: Universal budget tiers
+- `idea-guy/execute_analysis/__init__.py` - **UPDATED**: Universal analysis execution  
+- `idea-guy/process_idea/__init__.py` - **UPDATED**: Universal result retrieval
+- `idea-guy/read_sheet/__init__.py` - **UNCHANGED**: Utility endpoint
 
-### Supporting Services
-- `common/budget_config.py` - Budget tier management
+### Core Universal Engine
+- `common/engine.py` - **NEW**: UniversalAgentEngine (replaces agent_service.py)
+- `common/config.py` - **NEW**: Universal configuration loading
+- `common/workflow.py` - **NEW**: Universal multi-call workflow
+
+### Supporting Services (Kept)
 - `common/cost_tracker.py` - OpenAI cost logging
-- `common/utils.py` - OpenAI & Google Sheets client initialization
+- `common/utils.py` - OpenAI & Google Sheets client initialization  
 - `common/http_utils.py` - HTTP request/response utilities
 
-### Configuration
-- `agents/business_evaluation.yaml` - Business evaluator agent definition
-- Google Sheets rows 1-3 - Dynamic schema definition
-- `idea-guy/local.settings.json` - Environment variables
+### Deleted Files
+- ❌ `common/budget_config.py` - **DELETED**: Moved to platform.yaml
+- ❌ `common/agent_service.py` - **DELETED**: Replaced by UniversalAgentEngine
 
-## Testing System
+## Universal Testing Strategy
 
-The system includes comprehensive testing protection:
+**NEW**: 5 Focused Tests (replacing 34 overlapping tests)
 
 ```python
-def is_testing_mode():
-    return os.getenv('TESTING_MODE') == 'true' or 'pytest' in sys.modules
-
-# When testing:
-- OpenAI calls return mock responses
-- Google Sheets operations are bypassed  
-- No actual costs incurred
-- All functionality testable
+# 1. Configuration Loading Test - Can we load all config layers?
+# 2. Input Validation Test - Does dynamic schema validation work?  
+# 3. Workflow Engine Test - Can we execute analysis for any agent?
+# 4. API Integration Test - Do all endpoints work universally?
+# 5. Multi-Agent Test - Can we run different agent types?
 ```
 
-## Error Handling
+Testing mode automatically detected:
+- Mock OpenAI responses
+- Skip Google Sheets operations
+- No costs incurred
+- Fast test execution
 
-### Validation Errors
-```python
-class ValidationError(Exception):
-    # Missing required fields
-    # Invalid budget tier
-    # Malformed input
-```
+## Universal Benefits
 
-### API Errors
-```python
-# OpenAI API failures → Fallback strategies
-# Google Sheets access issues → Error responses
-# JSON parsing failures → Structured error messages
-```
+### For Adding New Agent Types
+1. Create `agents/{new_agent}.yaml` with personality
+2. Create Google Sheet with schema in rows 1-3  
+3. **System automatically works** - no code changes required
 
-## Security & Cost Controls
+### For Tuning System Behavior
 
-### API Key Management
-- OpenAI API key in environment variables
-- Google Sheets service account key file
-- Azure Functions authentication
-
-### Cost Protection
-- Budget tier limits prevent runaway costs
-- Testing mode prevents accidental charges
-- Comprehensive cost logging for monitoring
-- Per-call cost estimation and tracking
-
-## Extension Points
-
-### Adding New Agent Types
-1. Create `agents/{new_agent}.yaml` with configuration
-2. Set up Google Sheet with schema in rows 1-3
-3. System automatically supports new agent type
-4. No code changes required
-
-### Modifying Analysis Logic
-- Update prompts in agent YAML configuration
-- Modify budget tiers in `BudgetConfigManager`
-- Extend multi-call planning strategies
-- Add new analysis workflow patterns
-
-This architecture provides a clean separation between configuration, business logic, and infrastructure, making the system highly maintainable and extensible.
-
-## Universal Prompt Configuration System (**NEW**)
-
-### How to Tune the System
-
-#### 🔧 **Tune ALL Agents** (Edit `common/prompts.yaml`)
+#### 🔧 **Tune ALL Agents** (Edit `platform.yaml`)
 ```yaml
 prompts:
-  architecture_planning: |
-    You are an expert AI architecture planner...
-    # Changing this affects EVERY agent type
+  planning_template: |
+    You are an expert planner...
+    # This affects EVERY agent type
 ```
 
-#### 🎯 **Tune ONE Agent** (Edit `agents/business_evaluation.yaml`)  
+#### 🎯 **Tune ONE Agent** (Edit `agents/{name}.yaml`)
 ```yaml
-starter_prompt: |
+personality: |
   You are a senior partner at a VC firm...
-  # Only affects business evaluation agent
+  # Only affects this specific agent
 
 models:
-  analysis: "gpt-4o-mini"      # Agent can use different models
-  synthesis: "o1-preview"      # Mix and match as needed
+  analysis: "gpt-4o"  # This agent uses better model
 ```
 
-#### 🔄 **How It Works**
-1. **Planning**: Uses common template + agent's output fields dynamically
-2. **Analysis**: Combines common template + agent's starter_prompt + dynamic user input
-3. **Synthesis**: Uses common template + agent's dynamic output requirements
+### Architecture Benefits
+- ✅ **Zero Code for New Agents**: Pure configuration approach
+- ✅ **Universal Maintenance**: Change platform behavior in one place
+- ✅ **Agent Flexibility**: Each agent has its own expertise and overrides
+- ✅ **Dynamic Schema**: Input/output fields defined by users, not developers
+- ✅ **Clean APIs**: Same endpoints work for ANY agent type
+- ✅ **Focused Testing**: 5 clear tests instead of 34 overlapping ones
 
-### Key Benefits
-- ✅ **Truly Universal**: No hardcoded business evaluation fields
-- ✅ **Easy Tuning**: One file (`common/prompts.yaml`) affects all agents  
-- ✅ **Agent Flexibility**: Each agent has its own expertise and models
-- ✅ **Dynamic Schema**: Input/output fields come from Google Sheets
-- ✅ **Maintainability**: Clear separation between platform and agent logic
+This ruthless redesign achieves true universality while dramatically simplifying the codebase.

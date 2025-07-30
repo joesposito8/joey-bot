@@ -36,57 +36,12 @@ starter_prompt: |
 
   Only once you've done this "deep research" should you proceed to score the analysis dimensions. Remember: your credibility as a VC depends on both the **accuracy** and **granularity** of your analysis—so leave no stone unturned.
 
-# Available budget tiers with pricing and capabilities
-budget_tiers:
-  - name: "basic"
-    price: 1.00
-    calls: 1
-    description: "1 optimized call with intelligent architecture planning"
-    time_estimate: "5-10 minutes"
-    deliverables:
-      - "Comprehensive ratings with detailed analysis and specific rationales"
-      - "Deep competitor research with specific examples and URLs"
-      - "Market sizing with multiple data sources (TAM/SAM/SOM)"
-      - "Patent and prior art analysis with specific citations"
-      - "Regulatory and compliance considerations"
-      - "Risk assessment with detailed mitigation strategies"
-      - "Implementation roadmap with timeline suggestions"
-      - "Cost-benefit analysis with financial projections"
-    
-  - name: "standard"
-    price: 3.00
-    calls: 3
-    description: "3 coordinated calls with intelligent architecture planning"
-    time_estimate: "15-20 minutes"
-    deliverables:
-      - "Comprehensive ratings with detailed analysis and specific rationales"
-      - "Deep competitor research with specific examples and URLs"
-      - "Market sizing with multiple data sources (TAM/SAM/SOM)"
-      - "Patent and prior art analysis with specific citations"
-      - "Regulatory and compliance considerations"
-      - "Risk assessment with detailed mitigation strategies"
-      - "Implementation roadmap with timeline suggestions"
-      - "Cost-benefit analysis with financial projections"
-    
-  - name: "premium"
-    price: 5.00
-    calls: 5
-    description: "5 coordinated calls with intelligent architecture planning"
-    time_estimate: "20-30 minutes"
-    deliverables:
-      - "Comprehensive ratings with detailed analysis and specific rationales"
-      - "Deep competitor research with specific examples and URLs"
-      - "Market sizing with multiple data sources (TAM/SAM/SOM)"
-      - "Patent and prior art analysis with specific citations"
-      - "Regulatory and compliance considerations"
-      - "Risk assessment with detailed mitigation strategies"
-      - "Implementation roadmap with timeline suggestions"
-      - "Cost-benefit analysis with financial projections"
+# Budget tiers are now universal - defined in common/prompts.yaml
+# All agents use the same pricing structure and capabilities
 
-# Agent-specific model configuration
-models:
-  analysis: "o4-mini"           # Model for individual analysis calls
-  synthesis: "o4-mini"         # Model for final synthesis
+# Model overrides for this agent (optional - uses platform defaults if not specified)
+# models:
+#   analysis: "gpt-4o"  # Override if this agent needs a different model
 
 # Workflow configuration
 workflow_template: "multi_call_architecture"
