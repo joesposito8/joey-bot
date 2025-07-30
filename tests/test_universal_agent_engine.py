@@ -98,12 +98,11 @@ class TestUniversalAgentEngine:
         for tier_name in ['basic', 'standard', 'premium']:
             config = manager.get_tier_config(tier_name)
             
-            # Verify universal properties
-            assert config.model == "gpt-4o-mini"
-            assert hasattr(config, 'max_cost')
-            assert hasattr(config, 'max_calls')
-            assert config.max_calls > 0
-            assert config.max_cost > 0
+            # Verify universal tier properties
+            assert config.price > 0
+            assert config.calls > 0
+            assert config.description is not None
+            assert len(config.deliverables) > 0
     
     @patch('common.utils.get_openai_client')
     def test_universal_analysis_execution(self, mock_get_openai):
@@ -319,7 +318,7 @@ class TestUniversalValidation:
         schema = SheetSchema([], output_fields)
         
         # Test header generation
-        headers = schema.generate_output_headers()
+        headers = schema.get_header_row()
         assert "Rating" in headers
         assert "Summary" in headers
         

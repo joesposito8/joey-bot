@@ -105,6 +105,39 @@ def build_error_response(
     return build_json_response(error_data, status_code)
 
 
+def create_error_response(message: str, status_code: int = 400, error_type: str = None, suggestion: str = None) -> func.HttpResponse:
+    """Create standardized error response.
+    
+    Args:
+        message: Error message for user
+        status_code: HTTP status code (default: 400)
+        error_type: Optional error type classification
+        suggestion: Optional suggestion for fixing the error
+        
+    Returns:
+        Azure Function HTTP response
+    """
+    body = {"error": message}
+    if error_type:
+        body["error_type"] = error_type
+    if suggestion:
+        body["suggestion"] = suggestion
+    
+    return build_json_response(body, status_code=status_code)
+
+
+def create_success_response(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Create standardized success response body.
+    
+    Args:
+        data: Response data dictionary
+        
+    Returns:
+        Response body dictionary
+    """
+    return {"status_code": 200, "body": json.dumps(data)}
+
+
 def log_and_return_error(
     message: str,
     status_code: int = 500,

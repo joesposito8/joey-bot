@@ -17,12 +17,15 @@ class PromptManager:
     def _load_common_config(self) -> Dict[str, Any]:
         """Load common prompts configuration."""
         if self._common_config is None:
-            # Find the common prompts config file
+            # Find the platform config file
             current_path = Path(__file__).parent
-            config_path = current_path / 'prompts.yaml'
+            config_path = current_path / 'platform.yaml'
             
             if not config_path.exists():
-                raise ValueError(f"Common prompts config not found at: {config_path}")
+                # Fall back to prompts.yaml for backward compatibility
+                config_path = current_path / 'prompts.yaml'
+                if not config_path.exists():
+                    raise ValueError(f"Configuration not found at: {config_path}")
             
             with open(config_path, 'r', encoding='utf-8') as f:
                 self._common_config = yaml.safe_load(f)

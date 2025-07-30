@@ -5,14 +5,8 @@ Google Sheet schema reader for dynamic agent configuration.
 from .models import SheetSchema, FieldConfig
 
 
-class SchemaValidationError(Exception):
-    """Raised when sheet schema validation fails."""
-    pass
-
-
-class SheetAccessError(Exception):
-    """Raised when unable to access Google Sheet."""
-    pass
+from ..errors import SchemaError as SchemaValidationError
+from ..errors import ConfigurationError as SheetAccessError
 
 
 class SheetSchemaReader:

@@ -7,20 +7,19 @@ from typing import Dict, Any
 from common import get_openai_client, get_google_sheets_client, get_spreadsheet
 # Budget configuration now comes from agent YAML via FullAgentConfig
 from common.config import AgentDefinition, FullAgentConfig
+from common.config.models import BudgetTierConfig
 from pathlib import Path
 from common.http_utils import is_testing_mode
 from common.multi_call_architecture import create_multi_call_analysis
 
 
-class ValidationError(Exception):
-    """Raised when input validation fails."""
-    pass
+from .errors import ValidationError
 
 
 class AnalysisService:
     """Service for managing universal AI agent analysis workflow."""
     
-    def __init__(self, spreadsheet_id: str):
+    def __init__(self, spreadsheet_id: str = None):
         """Initialize analysis service with dynamic agent configuration.
         
         Args:
@@ -246,7 +245,7 @@ class AnalysisService:
             logging.error(f"Error creating spreadsheet record: {str(e)}")
             raise ValidationError(f"Failed to create spreadsheet record: {str(e)}")
     
-    def _estimate_usage_for_tier(self, tier_config: TierConfig) -> Dict[str, Any]:
+    def _estimate_usage_for_tier(self, tier_config: BudgetTierConfig) -> Dict[str, Any]:
         """Estimate token usage based on tier configuration.
         
         All tiers use o4-mini-deep-research with multi-call architecture.

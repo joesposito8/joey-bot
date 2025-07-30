@@ -1,4 +1,4 @@
-"""Budget configuration manager - lightweight wrapper around existing functionality."""
+"""Universal budget tier configuration manager."""
 
 from typing import List
 from .config.models import BudgetTierConfig, FullAgentConfig, AgentDefinition
@@ -6,24 +6,24 @@ from .prompt_manager import prompt_manager
 
 
 class BudgetConfigManager:
-    """Lightweight wrapper for budget tier access using existing FullAgentConfig."""
+    """Manages budget tiers for all agents using universal configuration."""
     
     def __init__(self):
-        """Initialize budget config manager."""
+        """Initialize budget config manager with universal configuration."""
         self._full_config = None
     
     def _get_full_config(self) -> FullAgentConfig:
-        """Get FullAgentConfig instance to access budget tiers."""
+        """Get FullAgentConfig instance with universal settings."""
         if self._full_config is None:
-            # Create minimal agent definition for universal access
-            mock_agent = AgentDefinition(
+            # Create universal agent definition
+            universal_agent = AgentDefinition(
                 agent_id="universal",
                 name="Universal Agent",
-                sheet_url="",  # Not needed for budget tier access
-                starter_prompt=""  # Not needed for budget tier access
+                sheet_url="",  # Universal config only
+                starter_prompt=""  # Universal config only
             )
-            # Create FullAgentConfig which loads universal config
-            self._full_config = FullAgentConfig(mock_agent, None)
+            # Load universal platform configuration
+            self._full_config = FullAgentConfig(universal_agent, None)
         return self._full_config
     
     def get_tier_config(self, tier_name: str) -> BudgetTierConfig:
@@ -33,10 +33,6 @@ class BudgetConfigManager:
         
         for tier in tiers:
             if tier.name == tier_name:
-                # Add backwards compatibility attributes
-                tier.model = config.get_model('analysis')
-                tier.max_cost = tier.price
-                tier.max_calls = tier.calls
                 return tier
         
         valid_tiers = [tier.name for tier in tiers]
@@ -45,15 +41,7 @@ class BudgetConfigManager:
     def get_all_tiers(self) -> List[BudgetTierConfig]:
         """Get all available budget tier configurations."""
         config = self._get_full_config()
-        tiers = config.get_budget_tiers()
-        
-        # Add backwards compatibility attributes
-        for tier in tiers:
-            tier.model = config.get_model('analysis')
-            tier.max_cost = tier.price
-            tier.max_calls = tier.calls
-        
-        return tiers
+        return config.get_budget_tiers()
     
     def get_tier_names(self) -> List[str]:
         """Get list of available tier names."""

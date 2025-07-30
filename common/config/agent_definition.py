@@ -9,9 +9,7 @@ from typing import List
 from .models import AgentDefinition
 
 
-class ValidationError(Exception):
-    """Raised when agent definition validation fails."""
-    pass
+from ..errors import ValidationError
 
 
 def _validate_agent_id(agent_id: str) -> None:

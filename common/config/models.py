@@ -156,6 +156,33 @@ Provide your analysis in exactly this JSON format:
         
         return 'gpt-4o-mini'  # Final fallback
     
+    def get_budget_tier(self, tier_name: str) -> BudgetTierConfig:
+        """Get configuration for a specific budget tier with legacy compatibility."""
+        tiers = self.get_budget_tiers()
+        
+        for tier in tiers:
+            if tier.name == tier_name:
+                # Add backwards compatibility attributes
+                tier.model = self.get_model('analysis')
+                tier.max_cost = tier.price
+                tier.max_calls = tier.calls
+                return tier
+        
+        valid_tiers = [tier.name for tier in tiers]
+        raise ValueError(f"Invalid budget tier '{tier_name}'. Valid tiers: {valid_tiers}")
+    
+    def get_all_budget_tiers(self) -> List[BudgetTierConfig]:
+        """Get all budget tiers with legacy compatibility."""
+        tiers = self.get_budget_tiers()
+        
+        # Add backwards compatibility attributes
+        for tier in tiers:
+            tier.model = self.get_model('analysis') 
+            tier.max_cost = tier.price
+            tier.max_calls = tier.calls
+            
+        return tiers
+
     def get_budget_tiers(self) -> List[BudgetTierConfig]:
         """Get universal budget tiers for all agents."""
         if not self.universal_config or 'budget_tiers' not in self.universal_config:

@@ -120,17 +120,14 @@ class TestPlatformIntegration:
         for tier_name in ['basic', 'standard', 'premium']:
             config = manager.get_tier_config(tier_name)
             
-            # Verify tier exists and has correct structure
-            assert hasattr(config, 'model')
-            assert hasattr(config, 'max_cost')
-            assert hasattr(config, 'max_calls')
+            # Verify tier structure matches platform config
+            expected_prices = {"basic": 1.0, "standard": 3.0, "premium": 5.0}
+            expected_calls = {"basic": 1, "standard": 3, "premium": 5}
             
-            # Verify uses current model
-            assert config.model == "gpt-4o-mini"
-            
-            # Verify pricing matches platform config
-            expected_costs = {"basic": 1.0, "standard": 3.0, "premium": 5.0}
-            assert config.max_cost == expected_costs[tier_name]
+            assert config.price == expected_prices[tier_name]
+            assert config.calls == expected_calls[tier_name]
+            assert config.description is not None
+            assert len(config.deliverables) > 0
     
     def test_multi_call_architecture_uses_platform_model(self):
         """Test that multi-call architecture uses platform model settings."""
