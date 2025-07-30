@@ -50,6 +50,14 @@ The Universal AI Agent Platform enables ANY type of AI-powered analysis through 
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+### Configuration Files
+
+#### Current System
+- 📄 `agents/business_evaluation.yaml` - Agent configuration
+- 📄 `idea-guy/local.settings.json` - Environment variables and API keys
+- 📄 `.keys/joey-bot-465403-d2eb14543555.json` - Google Sheets service account
+- 📄 `platform.yaml` - Universal configuration for ALL agents
+
 ### Current File Structure with Exact Locations
 <!-- Updated to reflect actual file structure after recent changes -->
 ```
