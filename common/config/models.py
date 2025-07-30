@@ -94,6 +94,19 @@ class FullAgentConfig:
     schema: SheetSchema
     universal_config: Dict[str, Any] = None  # Universal prompts, models, budget_tiers
     
+    @property
+    def id(self) -> str:
+        """Get agent ID from definition."""
+        return self.definition.agent_id
+        
+    def validate_input(self, user_input: Dict[str, Any]) -> bool:
+        """Validate input against schema requirements."""
+        if not user_input:
+            return False
+            
+        # Use schema validation
+        return self.schema.validate_input(user_input)
+    
     def generate_instructions(self) -> str:
         """Generate instructions for the ChatGPT bot on how to collect user input."""
         # List all required fields with descriptions and exact field names
