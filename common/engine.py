@@ -5,7 +5,7 @@ import yaml
 import json
 from pathlib import Path
 
-from .config.models import AgentDefinition, FullAgentConfig, SheetSchema
+from .config.models import AgentDefinition, FullAgentConfig, SheetSchema, BudgetTierConfig
 from .errors import ValidationError, AnalysisError, SchemaError
 from .prompt_manager import prompt_manager
 from . import get_openai_client, get_google_sheets_client
@@ -119,9 +119,9 @@ class UniversalAgentEngine:
     def _plan_execution(
         self,
         agent: FullAgentConfig,
-        tier: Any,  # TODO: Add proper type hint after implementing plan types
+        tier: BudgetTierConfig,
         user_input: Dict[str, Any]
-    ) -> Any:
+    ) -> Dict[str, Any]:
         """Plan multi-call execution based on budget tier.
         
         Args:
@@ -130,10 +130,79 @@ class UniversalAgentEngine:
             user_input: User's input data
             
         Returns:
-            Execution plan
+            Execution plan with calls and dependencies
         """
-        # TODO: Implement execution planning
-        raise NotImplementedError
+        # Simple plan with tier-based call count
+        if tier.calls == 1:
+            return {
+                "total_calls": 1,
+                "calls": [{
+                    "call_id": "analysis",
+                    "purpose": "Complete analysis",
+                    "dependencies": [],
+                    "is_summarizer": True
+                }]
+            }
+        elif tier.calls == 3:
+            return {
+                "total_calls": 3,
+                "calls": [
+                    {
+                        "call_id": "market_analysis",
+                        "purpose": "Market analysis",
+                        "dependencies": [],
+                        "is_summarizer": False
+                    },
+                    {
+                        "call_id": "risk_assessment",
+                        "purpose": "Risk assessment",
+                        "dependencies": [],
+                        "is_summarizer": False
+                    },
+                    {
+                        "call_id": "synthesis",
+                        "purpose": "Final synthesis",
+                        "dependencies": ["market_analysis", "risk_assessment"],
+                        "is_summarizer": True
+                    }
+                ]
+            }
+        else:  # tier.calls == 5
+            return {
+                "total_calls": 5,
+                "calls": [
+                    {
+                        "call_id": "market_analysis",
+                        "purpose": "Market analysis",
+                        "dependencies": [],
+                        "is_summarizer": False
+                    },
+                    {
+                        "call_id": "risk_assessment",
+                        "purpose": "Risk assessment",
+                        "dependencies": [],
+                        "is_summarizer": False
+                    },
+                    {
+                        "call_id": "competitive_analysis",
+                        "purpose": "Competitive analysis",
+                        "dependencies": [],
+                        "is_summarizer": False
+                    },
+                    {
+                        "call_id": "feasibility_analysis",
+                        "purpose": "Technical feasibility",
+                        "dependencies": [],
+                        "is_summarizer": False
+                    },
+                    {
+                        "call_id": "synthesis",
+                        "purpose": "Final synthesis",
+                        "dependencies": ["market_analysis", "risk_assessment", "competitive_analysis", "feasibility_analysis"],
+                        "is_summarizer": True
+                    }
+                ]
+            }
             
     def _execute_plan(
         self,
