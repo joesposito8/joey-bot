@@ -9,50 +9,35 @@ Joey-Bot is transforming into a **Universal AI Agent Platform** where ANY type o
 
 ## 📚 Documentation Structure
 
-### Core Documentation (5 Essential Documents)
+### Core Documentation (3 Essential Documents)
 
-1. **[Universal System Design](docs/UNIVERSAL_SYSTEM_DESIGN.md)** 🎯
-   - **Purpose**: Complete ruthless redesign specification
-   - **Contains**: Configuration-driven architecture, component elimination, implementation strategy
-   - **Use When**: Understanding the new universal platform vision
+1. **[System Architecture](docs/SYSTEM_ARCHITECTURE.md)** 🏗️
+   - **Purpose**: Complete technical implementation guide with exact file locations
+   - **Contains**: Current vs planned architecture, component tracing, universal system design
+   - **Use When**: Understanding how the system works, finding code locations, making changes
 
 2. **[Implementation Plan](IMPLEMENTATION_PLAN.md)** 📋
-   - **Purpose**: Step-by-step transformation roadmap
-   - **Contains**: Documentation → Tests → System rebuild strategy
+   - **Purpose**: Step-by-step transformation roadmap from current to universal system
+   - **Contains**: Documentation → Tests → System rebuild strategy with specific tasks
    - **Use When**: Executing the universal platform implementation
 
-3. **[System Architecture](docs/SYSTEM_ARCHITECTURE.md)** 🏗️
-   - **Purpose**: **UPDATED** - Universal system architecture 
-   - **Contains**: UniversalAgentEngine, configuration layers, universal endpoints
-   - **Use When**: Understanding how the universal system works internally
-
-4. **[API Reference](docs/API.md)** 🔌
-   - **Purpose**: Learn how to use the system's endpoints
-   - **Contains**: Complete API documentation, request/response examples, usage patterns
-   - **Use When**: Integrating with joey-bot, building clients, or testing endpoints
-
-5. **[Testing Guide](docs/TESTING.md)** 🧪
-   - **Purpose**: **TO UPDATE** - New 5-focused-test strategy
-   - **Contains**: Universal testing approach, configuration testing, cost protection
-   - **Use When**: Testing the universal platform
-
-6. **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** 🔧
-   - **Purpose**: Solve common problems and debug issues
-   - **Contains**: Common issues, diagnostic tools, error solutions, performance tips
-   - **Use When**: Something isn't working or you need to debug problems
+3. **[Developer Guide](docs/DEVELOPER_GUIDE.md)** 🛠️
+   - **Purpose**: Everything developers need: API, testing, troubleshooting in one place
+   - **Contains**: API reference, testing strategies, debugging, development workflow
+   - **Use When**: Developing, testing, debugging, or integrating with joey-bot
 
 ## 🚀 Quick Start
 
 ### For Users (API Integration)
-1. Start with **[API Reference](docs/API.md)** to understand endpoints
-2. Use **[Testing Guide](docs/TESTING.md)** to set up safe development environment
-3. Reference **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** if issues arise
+1. Start with **[Developer Guide](docs/DEVELOPER_GUIDE.md)** to understand endpoints and testing
+2. Use testing mode setup to prevent API charges
+3. Follow the complete workflow: Instructions → Price Points → Execute → Poll Results
 
 ### For Developers (Code Changes)
-1. Read **[System Architecture](docs/SYSTEM_ARCHITECTURE.md)** to understand the codebase
-2. Use **[Testing Guide](docs/TESTING.md)** for safe development practices
-3. Reference **[API Reference](docs/API.md)** to understand expected behavior
-4. Use **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** for debugging
+1. Read **[System Architecture](docs/SYSTEM_ARCHITECTURE.md)** to understand the codebase structure
+2. Use **[Developer Guide](docs/DEVELOPER_GUIDE.md)** for testing, debugging, and development workflow
+3. Follow **[Implementation Plan](IMPLEMENTATION_PLAN.md)** for universal platform tasks
+4. Check **[Task List](TASKLIST.md)** for current priorities and dependencies
 
 ## 🎯 Key System Facts
 
@@ -88,13 +73,17 @@ python -m pytest tests/ -v
 ```bash
 # Safe testing (no API charges)
 export TESTING_MODE=true
-python -m pytest tests/unit/ -v
+python -m pytest tests/ -v
 
 # Run Azure Functions locally  
 cd idea-guy && func start --python
 
 # Check system health
 python -c "from common.http_utils import is_testing_mode; print(f'Testing mode: {is_testing_mode()}')"
+
+# Test specific components
+python -m pytest tests/test_platform_config.py -v
+python -m pytest tests/test_dynamic_configuration.py -v
 ```
 
 ### Production
@@ -111,21 +100,21 @@ unset TESTING_MODE
 ## 🔍 Finding Information
 
 ### "How do I...?"
-- **Use the API?** → [API Reference](docs/API.md)
-- **Set up testing?** → [Testing Guide](docs/TESTING.md)
+- **Use the API?** → [Developer Guide](docs/DEVELOPER_GUIDE.md) - API Reference section
+- **Set up testing?** → [Developer Guide](docs/DEVELOPER_GUIDE.md) - Testing Guide section
 - **Understand the code?** → [System Architecture](docs/SYSTEM_ARCHITECTURE.md)
-- **Fix an error?** → [Troubleshooting Guide](docs/TROUBLESHOOTING.md)
+- **Fix an error?** → [Developer Guide](docs/DEVELOPER_GUIDE.md) - Troubleshooting section
 
 ### "What does X do?"
 - **System components** → [System Architecture](docs/SYSTEM_ARCHITECTURE.md)
-- **API endpoints** → [API Reference](docs/API.md)
-- **Error messages** → [Troubleshooting Guide](docs/TROUBLESHOOTING.md)
+- **API endpoints** → [Developer Guide](docs/DEVELOPER_GUIDE.md) - API Reference
+- **File locations** → [System Architecture](docs/SYSTEM_ARCHITECTURE.md) - Complete File Mapping
 
 ### "Why isn't X working?"
-- **Start here** → [Troubleshooting Guide](docs/TROUBLESHOOTING.md)
+- **Start here** → [Developer Guide](docs/DEVELOPER_GUIDE.md) - Troubleshooting Guide
 - **Check configuration** → [System Architecture](docs/SYSTEM_ARCHITECTURE.md)
-- **Verify API usage** → [API Reference](docs/API.md)
-- **Test safely** → [Testing Guide](docs/TESTING.md)
+- **Development setup** → [Developer Guide](docs/DEVELOPER_GUIDE.md) - Quick Start
+- **Test safely** → [Developer Guide](docs/DEVELOPER_GUIDE.md) - Testing Mode
 
 ## 🏗️ Project Structure
 

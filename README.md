@@ -210,10 +210,10 @@ The system uses different analysis strategies based on budget tier:
 For detailed technical information:
 
 - **[CLAUDE.md](CLAUDE.md)** - Documentation directory and quick reference
-- **[System Architecture](docs/SYSTEM_ARCHITECTURE.md)** - Technical implementation details
-- **[API Reference](docs/API.md)** - Complete endpoint documentation
-- **[Testing Guide](docs/TESTING.md)** - Development and testing practices
-- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
+- **[System Architecture](docs/SYSTEM_ARCHITECTURE.md)** - Technical implementation with exact file locations
+- **[Developer Guide](docs/DEVELOPER_GUIDE.md)** - API reference, testing, and troubleshooting
+- **[Implementation Plan](IMPLEMENTATION_PLAN.md)** - Roadmap to universal platform
+- **[Project Vision](PROJECT_VISION.md)** - Mission, scope, and stakeholder context
 
 ---
 
