@@ -104,6 +104,16 @@ class FullAgentConfig:
     def starter_prompt(self) -> str:
         """Get agent starter prompt from definition."""
         return self.definition.starter_prompt
+    
+    @property
+    def input_fields(self) -> List[FieldConfig]:
+        """Get input field definitions from schema."""
+        return self.schema.input_fields
+    
+    @property
+    def output_fields(self) -> List[FieldConfig]:
+        """Get output field definitions from schema."""
+        return self.schema.output_fields
         
     def validate_input(self, user_input: Dict[str, Any]) -> None:
         """Validate input against schema requirements.
