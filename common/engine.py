@@ -44,8 +44,18 @@ class UniversalAgentEngine:
         agent_def = AgentDefinition.from_yaml(yaml_path)
         
         try:
-            # Initialize sheets client
-            sheets_client = get_google_sheets_client()
+            # Get service account path from local.settings.json
+            settings_path = Path("idea-guy/local.settings.json")
+            if not settings_path.exists():
+                raise ConfigurationError("local.settings.json not found")
+                
+            with open(settings_path) as f:
+                settings = json.load(f)
+                
+            key_path = settings["Values"]["GOOGLE_SHEETS_KEY_PATH"]
+            
+            # Initialize sheets client with service account
+            sheets_client = get_google_sheets_client(key_path=key_path)
             # Load complete config including schema
             config = FullAgentConfig.from_definition(agent_def, sheets_client)
             
