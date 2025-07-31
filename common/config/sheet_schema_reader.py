@@ -71,8 +71,12 @@ class SheetSchemaReader:
                 continue
                 
             field_type = row1[i].strip().lower()
-            description = row2[i].strip() if row2[i].strip() else f"Description for {row3[i]}"
+            description = row2[i].strip()
             column_name = row3[i].strip().replace(' ', '_')
+            
+            # Require descriptions for all columns except ID and Time
+            if not description and column_name.lower() not in ['id', 'time']:
+                raise SchemaValidationError(f"Empty description for field '{column_name}' in column {i+1}. All fields except ID and Time must have descriptions.")
             
             # Normalize and validate field type (case insensitive)
             if field_type == "user":

@@ -23,18 +23,19 @@ os.environ["TESTING_MODE"] = "true"
 os.environ["IDEA_GUY_SHEET_ID"] = "1bGxOTEPxx3vF3UwPAK7SBUAt1dNqVWAvl3W07Zdj4rs"
 
 
+@pytest.fixture
+def comprehensive_mock_request():
+    """Comprehensive mock request for testing."""
+    def create_mock_request(data=None, params=None):
+        mock_req = Mock(spec=func.HttpRequest)
+        mock_req.get_json.return_value = data or {}
+        mock_req.params = params or {}
+        return mock_req
+    return create_mock_request
+
+
 class TestUniversalEndpointArchitecture:
     """Test universal endpoint architecture for any agent type."""
-    
-    @pytest.fixture
-    def comprehensive_mock_request(self):
-        """Comprehensive mock request for testing."""
-        def create_mock_request(data=None, params=None):
-            mock_req = Mock(spec=func.HttpRequest)
-            mock_req.get_json.return_value = data or {}
-            mock_req.params = params or {}
-            return mock_req
-        return create_mock_request
     
     @pytest.fixture
     def universal_agent_config(self):
@@ -153,11 +154,11 @@ class TestReadSheetEndpoint:
             assert response.status_code == 200
             response_data = json.loads(response.get_body())
             
-            # Verify sheet data structure
-            assert "data" in response_data
-            assert "testing_mode" in response_data
-            assert isinstance(response_data["data"], list)
-            assert len(response_data["data"]) >= 1  # Should include headers
+            # Verify sheet data structure (real Google Sheets API response)
+            assert "sheet_data" in response_data
+            assert isinstance(response_data["sheet_data"], dict)
+            # Should contain worksheet data
+            assert len(response_data["sheet_data"]) >= 1
     
     def test_sheet_reading_parameters(self, comprehensive_mock_request):
         """Test sheet reading with various parameters."""

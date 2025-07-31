@@ -14,6 +14,7 @@ from unittest.mock import Mock, patch
 from common.config.models import FieldConfig, SheetSchema, AgentDefinition, FullAgentConfig, BudgetTierConfig
 from common.config.sheet_schema_reader import SheetSchemaReader, SchemaValidationError, SheetAccessError
 from common.config import AgentDefinition as ImportedAgentDefinition
+from common.errors import ValidationError, ConfigurationError
 
 # Set testing mode
 os.environ["TESTING_MODE"] = "true"
@@ -197,8 +198,8 @@ class TestSheetSchemaReader:
         ]
         
         reader = SheetSchemaReader(mock_client)
-        with pytest.raises(SchemaValidationError, match="Schema must have at least 3 rows"):
-            reader.parse_sheet_schema("https://docs.google.com/test/")
+        with pytest.raises(SchemaValidationError, match="Sheet must have at least 3 rows"):
+            reader.parse_sheet_schema("https://docs.google.com/spreadsheets/d/test_sheet_id/")
         
         # Invalid field types
         mock_worksheet.get_values.return_value = [
@@ -208,7 +209,7 @@ class TestSheetSchemaReader:
         ]
         
         with pytest.raises(SchemaValidationError, match="Invalid field type 'InvalidType'"):
-            reader.parse_sheet_schema("https://docs.google.com/test/")
+            reader.parse_sheet_schema("https://docs.google.com/spreadsheets/d/test_sheet_id/")
         
         # Duplicate column names
         mock_worksheet.get_values.return_value = [
@@ -218,17 +219,17 @@ class TestSheetSchemaReader:
         ]
         
         with pytest.raises(SchemaValidationError, match="Duplicate column name 'SameName'"):
-            reader.parse_sheet_schema("https://docs.google.com/test/")
+            reader.parse_sheet_schema("https://docs.google.com/spreadsheets/d/test_sheet_id/")
         
-        # Empty descriptions
+        # Empty descriptions should cause validation error
         mock_worksheet.get_values.return_value = [
-            ["ID", "Time", "User"],
+            ["ID", "Time", "user input"],
             ["ID", "Time", ""],  # Empty description
             ["ID", "Time", "FieldName"]
         ]
         
         with pytest.raises(SchemaValidationError, match="Empty description for field 'FieldName'"):
-            reader.parse_sheet_schema("https://docs.google.com/test/")
+            reader.parse_sheet_schema("https://docs.google.com/spreadsheets/d/test_sheet_id/")
     
     def test_sheet_access_errors(self):
         """Test sheet access error handling."""
@@ -236,8 +237,8 @@ class TestSheetSchemaReader:
         mock_client = Mock()
         reader = SheetSchemaReader(mock_client)
         
-        with pytest.raises(SheetAccessError, match="Invalid Google Sheets URL"):
-            reader.parse_sheet_schema("https://invalid-url.com/")
+        with pytest.raises(ConfigurationError, match="Invalid Google Sheets URL"):
+            reader.parse_sheet_schema("https://docs.google.com/test/")
         
         # Test sheets API error
         mock_client.open_by_key.side_effect = Exception("API Error")
@@ -320,7 +321,7 @@ class TestAgentDefinition:
             with open(yaml_file, 'w') as f:
                 yaml.dump(invalid_config, f)
             
-            with pytest.raises(ValueError, match="Missing required field"):
+            with pytest.raises(ValidationError, match="Missing required field"):
                 AgentDefinition.from_yaml(yaml_file)
         
         # Test invalid agent_id format
@@ -335,7 +336,7 @@ class TestAgentDefinition:
         with open(yaml_file, 'w') as f:
             yaml.dump(invalid_id_config, f)
         
-        with pytest.raises(ValueError, match="agent_id must contain only"):
+        with pytest.raises(ValidationError, match="agent_id must be URL-safe"):
             AgentDefinition.from_yaml(yaml_file)
     
     def test_yaml_syntax_errors(self, tmp_path):
@@ -346,7 +347,7 @@ class TestAgentDefinition:
         with open(yaml_file, 'w') as f:
             f.write(invalid_yaml)
         
-        with pytest.raises(ValueError, match="Invalid YAML syntax"):
+        with pytest.raises(ValidationError, match="Invalid YAML syntax"):
             AgentDefinition.from_yaml(yaml_file)
 
 

@@ -5,12 +5,6 @@ import os
 
 from common import get_openai_client, get_google_sheets_client, get_spreadsheet
 
-# Initialize clients
-spreadsheet_id: str = os.getenv("IDEA_GUY_SHEET_ID", "")
-client = get_openai_client()
-gc = get_google_sheets_client()
-spreadsheet = get_spreadsheet(spreadsheet_id, gc)
-
 ID_COLUMN_INDEX = 0
 HEADER_ROW_INDEX = 1
 FIRST_VALUE_ROW_INDEX = 2
@@ -21,6 +15,11 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed a request.')
 
     try:
+        # Initialize clients inside function to avoid import-time execution
+        spreadsheet_id: str = os.getenv("IDEA_GUY_SHEET_ID", "")
+        gc = get_google_sheets_client()
+        spreadsheet = get_spreadsheet(spreadsheet_id, gc)
+        
         # Check for id query parameter
         id_param = req.params.get('id')
 
