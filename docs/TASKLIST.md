@@ -76,7 +76,7 @@
 - [ ] Test end-to-end workflow with business evaluation agent
 
 #### File Cleanup
-- [ ] Delete `common/budget_config.py` after functionality moved to platform.yaml
+- [x] Delete `common/budget_config.py` after functionality moved to FullAgentConfig
 - [ ] Remove unused imports and references to deleted files
 - [ ] Update any remaining hardcoded references to business evaluation
 

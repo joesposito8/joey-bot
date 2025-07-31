@@ -88,7 +88,7 @@ The Universal AI Agent Platform enables ANY type of AI-powered analysis through 
 ├── 📁 common/                              # Core business logic
 │   ├── 📄 agent_service.py                 # CURRENT: Main orchestration service
 │   ├── 📄 multi_call_architecture.py       # Workflow execution engine
-│   ├── 📄 budget_config.py                 # UPDATED: Uses platform.yaml for budgets
+│       # Budget configuration now handled by FullAgentConfig in models.py
 │   ├── 📁 config/                          # Configuration loading system
 │   │   ├── 📄 models.py                    # Data models and schemas
 │   │   ├── 📄 agent_definition.py          # Agent configuration parsing
