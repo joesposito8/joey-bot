@@ -18,11 +18,13 @@
 The Universal AI Agent Platform enables ANY type of AI-powered analysis through pure configuration, allowing the same codebase to handle business evaluation, HR analysis, legal review, medical assessment, or any other domain through YAML configuration files and Google Sheets schema definitions. The system achieves true universality by eliminating hardcoded business logic and using a four-layer configuration architecture.
 
 ## Core Components
-1. **AnalysisService** (`common/agent_service.py`) - Main orchestration service that loads configurations and manages analysis workflows
-2. **MultiCallArchitecture** (`common/multi_call_architecture.py`) - Intelligent workflow engine that plans and executes 1/3/5 call budget tiers
-3. **Configuration System** (`common/config/`) - Four-layer configuration loading (Auth→Platform→Agent→Dynamic)
-4. **Azure Functions** (`idea-guy/`) - Five HTTP endpoints providing clean API interface
-5. **Google Sheets Integration** (`common/utils.py`, `common/config/sheet_schema_reader.py`) - Dynamic schema definition and data storage
+1. **Custom GPTs** (OpenAI Platform) - One per agent type, orchestrates complete user workflow with dynamic instructions
+2. **AnalysisService** (`common/agent_service.py`) - Main orchestration service that loads configurations and manages analysis workflows
+3. **MultiCallArchitecture** (`common/multi_call_architecture.py`) - Intelligent workflow engine that plans and executes 1/3/5 call budget tiers
+4. **Configuration System** (`common/config/`) - Four-layer configuration loading (Auth→Platform→Agent→Dynamic)
+5. **Azure Functions** (`idea-guy/`) - Five HTTP endpoints providing clean API interface
+6. **OpenAPI Integration** (`idea-guy/openapi_chatgpt.yaml`) - Schema defining how Custom GPTs call Azure endpoints
+7. **Google Sheets Integration** (`common/utils.py`, `common/config/sheet_schema_reader.py`) - Dynamic schema definition and data storage per agent
 
 ## Technology Stack
 **Backend/Core**: Python 3.10+, Azure Functions, OpenAI API (gpt-4o-mini)
@@ -33,14 +35,20 @@ The Universal AI Agent Platform enables ANY type of AI-powered analysis through 
 
 ## System Context Diagram
 ```
+┌─────────────────────┐    ┌──────────────────────┐    ┌─────────────────┐
+│   End User      │───▶│   Custom GPT         │───▶│   Azure Functions   │
+│ (Natural Language)  │    │ (Agent-Specific)     │    │  (idea-guy/*.py)    │
+└─────────────────────┘    └──────────────────────┘    └─────────────────┘
+                                │                               │
+                                ▼                               ▼
+┌─────────────────────┐    ┌──────────────────────┐    ┌─────────────────┐
+│ OpenAI Platform     │    │ OpenAPI Schema       │    │   OpenAI API    │
+│ (Custom GPT Host)   │    │(openapi_chatgpt.yaml)│    │ (gpt-4o-mini)   │
+└─────────────────────┘    └──────────────────────┘    └─────────────────┘
+                                                               │
+                                                               ▼
 ┌─────────────────┐    ┌──────────────────────┐    ┌─────────────────┐
-│   API Client    │───▶│   Azure Functions     │───▶│   OpenAI API    │
-│ (HTTP requests) │    │  (idea-guy/*.py)      │    │ (gpt-4o-mini)   │
-└─────────────────┘    └──────────────────────┘    └─────────────────┘
-                                │
-                                ▼
-┌─────────────────┐    ┌──────────────────────┐    ┌─────────────────┐
-│ Google Sheets   │◀───│   AnalysisService    │───▶│ Configuration   │
+│ Google Sheets   │◀───│   AnalysisService    │◀───│ Configuration   │
 │ (schema + data) │    │ (agent_service.py)   │    │ (YAML + Sheets) │
 └─────────────────┘    └──────────────────────┘    └─────────────────┘
 ```
@@ -210,8 +218,9 @@ Results → Google Sheets Storage → API Response
 
 ## External APIs
 - **OpenAI API**: GPT-4o-mini for all analysis functions (architecture planning, analysis, synthesis)
-- **Google Sheets API v4**: Dynamic schema definition and data storage
-- **Azure Functions Runtime**: Serverless HTTP endpoint hosting
+- **OpenAI Custom GPT Platform**: Hosts Custom GPTs that orchestrate user interactions
+- **Google Sheets API v4**: Dynamic schema definition and data storage per agent type
+- **Azure Functions Runtime**: Serverless HTTP endpoint hosting for Custom GPT integration
 
 ## Authentication
 - **Google Sheets**: Service account JSON key authentication (`GOOGLE_SHEETS_KEY_PATH`)
