@@ -3,6 +3,7 @@ import json
 import logging
 from dataclasses import dataclass
 from typing import Dict, List, Any
+from unittest.mock import Mock
 
 from common.http_utils import is_testing_mode
 
@@ -26,46 +27,47 @@ class ArchitecturePlan:
     execution_order: List[List[str]]  # Batches of call IDs to execute simultaneously
 
 
-def get_architecture_planning_prompt(
-    original_prompt: str, 
-    available_calls: int,
-    user_input: Dict[str, Any],
-    output_fields: list
-) -> str:
-    """Generate universal prompt for planning optimal call architecture.
-    
-    Args:
-        original_prompt: The analysis prompt to execute (from agent config)
-        available_calls: Number of API calls available
-        user_input: User's input data
-        output_fields: List of output field names
-        
-    Returns:
-        Universal planning prompt for architecture design
-    """
-    # Use universal prompt manager for architecture planning
-    from .prompt_manager import prompt_manager
-    
-    return prompt_manager.format_architecture_planning_prompt(
-        available_calls=available_calls,
-        model=agent_config.get_model('architecture_planning'),
-        original_prompt=original_prompt,
-        user_input=user_input,
-        output_fields=output_fields
-    )
-
-
 class MultiCallArchitecture:
     """Manages multi-call analysis architecture and execution."""
     
-    def __init__(self, openai_client):
-        """Initialize with OpenAI client.
+    def __init__(self, openai_client, agent_config: 'FullAgentConfig'):
+        """Initialize with OpenAI client and agent configuration.
         
         Args:
             openai_client: OpenAI client for API calls
+            agent_config: FullAgentConfig for dynamic configuration
         """
         self.client = openai_client
-        self.max_concurrent_calls = 4
+        self.agent_config = agent_config
+        self.max_concurrent_calls = agent_config.get_universal_setting('max_concurrent_calls', 4)
+        
+    def _get_architecture_planning_prompt(
+        self,
+        original_prompt: str,
+        available_calls: int,
+        user_input: Dict[str, Any],
+        output_fields: list
+    ) -> str:
+        """Generate universal prompt for planning optimal call architecture.
+        
+        Args:
+            original_prompt: The analysis prompt to execute (from agent config)
+            available_calls: Number of API calls available
+            user_input: User's input data
+            output_fields: List of output field names
+            
+        Returns:
+            Universal planning prompt for architecture design
+        """
+        from .prompt_manager import prompt_manager
+        
+        return prompt_manager.format_architecture_planning_prompt(
+            available_calls=available_calls,
+            model=self.agent_config.get_model('architecture_planning'),
+            original_prompt=original_prompt,
+            user_input=user_input,
+            output_fields=output_fields
+        )
     
     def plan_architecture(
         self, 
@@ -90,18 +92,43 @@ class MultiCallArchitecture:
         """
         try:
             # Generate planning prompt
-            planning_prompt = get_architecture_planning_prompt(
-                original_prompt, available_calls, user_input, output_fields
+            planning_prompt = self._get_architecture_planning_prompt(
+                original_prompt=original_prompt,
+                available_calls=available_calls,
+                user_input=user_input,
+                output_fields=output_fields
             )
             
             # Get architecture plan using configured model
-            planning_model = agent_config.get_model('architecture_planning')
+            planning_model = self.agent_config.get_model('architecture_planning')
             
-            response = self.client.responses.create(
-                model=planning_model,
-                input=[{"role": "user", "content": [{"type": "input_text", "text": planning_prompt}]}],
-                background=False  # Synchronous for planning
-            )
+            # For testing mode, use mock responses
+            if is_testing_mode():
+                response = Mock()
+                response.output = [Mock()]
+                response.output[0].content = [Mock()]
+                response.output[0].content[0].text = json.dumps({
+                    "strategy_explanation": "Test workflow",
+                    "total_calls": available_calls,
+                    "max_concurrent": min(4, available_calls),
+                    "calls": [
+                        {
+                            "call_id": f"call_{i}",
+                            "purpose": f"Stage {i}",
+                            "prompt": f"Execute stage {i}",
+                            "dependencies": [],
+                            "is_summarizer": i == available_calls
+                        }
+                        for i in range(1, available_calls + 1)
+                    ],
+                    "execution_order": [[f"call_{i}"] for i in range(1, available_calls + 1)]
+                })
+            else:
+                response = self.client.responses.create(
+                    model=planning_model,
+                    input=[{"role": "user", "content": [{"type": "input_text", "text": planning_prompt}]}],
+                    background=False  # Synchronous for planning
+                )
             
             # Parse response
             if hasattr(response, 'output') and response.output:

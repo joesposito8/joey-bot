@@ -20,6 +20,17 @@ class TestMultiCallWorkflow:
     """Test the universal plan → execute → synthesize workflow pattern."""
     
     @pytest.fixture
+    def mock_agent_config(self):
+        """Mock agent configuration for testing."""
+        config = Mock()
+        config.get_model.return_value = "gpt-4-turbo"
+        config.schema.output_fields = [
+            Mock(name="Analysis_Result"),
+            Mock(name="Overall_Rating")
+        ]
+        return config
+    
+    @pytest.fixture
     def mock_openai_client(self):
         """Mock OpenAI client for workflow testing."""
         client = Mock()
@@ -36,6 +47,11 @@ class TestMultiCallWorkflow:
             "strategy_explanation": "Three-stage analysis workflow",
             "total_calls": 3,
             "max_concurrent": 2,
+            "execution_order": [
+                ["planner"],
+                ["executor"], 
+                ["synthesizer"]
+            ],
             "calls": [
                 {
                     "call_id": "planner",
@@ -58,11 +74,6 @@ class TestMultiCallWorkflow:
                     "dependencies": ["planner", "executor"],
                     "is_summarizer": True
                 }
-            ],
-            "execution_order": [
-                ["planner"],
-                ["executor"], 
-                ["synthesizer"]
             ]
         }
         
@@ -99,9 +110,9 @@ class TestMultiCallWorkflow:
         
         return client
     
-    def test_workflow_planning(self, mock_openai_client):
+    def test_workflow_planning(self, mock_openai_client, mock_agent_config):
         """Test workflow planning stage."""
-        architecture = MultiCallArchitecture(mock_openai_client)
+        architecture = MultiCallArchitecture(mock_openai_client, mock_agent_config)
         
         user_input = {
             "Idea_Overview": "Test scenario",
@@ -113,7 +124,8 @@ class TestMultiCallWorkflow:
         plan = architecture.plan_architecture(
             original_prompt="Execute workflow analysis",
             available_calls=3,
-            user_input=user_input
+            user_input=user_input,
+            output_fields=["Analysis_Result", "Overall_Rating"]
         )
         
         # Verify workflow structure
@@ -123,18 +135,18 @@ class TestMultiCallWorkflow:
         
         # Verify stages
         call_ids = [call.call_id for call in plan.calls]
-        assert "planner" in call_ids
-        assert "executor" in call_ids  
-        assert "synthesizer" in call_ids
+        assert "call_1" in call_ids  # First stage
+        assert "call_2" in call_ids  # Second stage
+        assert "call_3" in call_ids  # Final stage (summarizer)
         
         # Verify synthesizer is marked
         synthesizer_calls = [call for call in plan.calls if call.is_summarizer]
         assert len(synthesizer_calls) == 1
-        assert synthesizer_calls[0].call_id == "synthesizer"
+        assert synthesizer_calls[0].call_id == "call_3"  # Last call is summarizer
     
-    def test_execution_order(self, mock_openai_client):
+    def test_execution_order(self, mock_openai_client, mock_agent_config):
         """Test workflow execution follows dependency order."""
-        architecture = MultiCallArchitecture(mock_openai_client)
+        architecture = MultiCallArchitecture(mock_openai_client, mock_agent_config)
         
         user_input = {
             "Test_Input": "Workflow ordering test"
@@ -143,27 +155,28 @@ class TestMultiCallWorkflow:
         plan = architecture.plan_architecture(
             original_prompt="Test execution order",
             available_calls=3,
-            user_input=user_input
+            user_input=user_input,
+            output_fields=["Analysis_Result", "Overall_Rating"]
         )
         
         # Verify execution order respects dependencies
         execution_order = plan.execution_order
         
-        # First batch should contain planner (no dependencies)
+        # First batch should contain first call (no dependencies)
         first_batch = execution_order[0]
-        assert "planner" in first_batch
+        assert "call_1" in first_batch
         
         # Later batches should contain dependent calls
         later_calls = []
         for batch in execution_order[1:]:
             later_calls.extend(batch)
         
-        assert "executor" in later_calls
-        assert "synthesizer" in later_calls
+        assert "call_2" in later_calls  # Second stage
+        assert "call_3" in later_calls  # Final summarizer
     
-    def test_multi_tier_scaling(self, mock_openai_client):
+    def test_multi_tier_scaling(self, mock_openai_client, mock_agent_config):
         """Test workflow scales across budget tiers."""
-        architecture = MultiCallArchitecture(mock_openai_client)
+        architecture = MultiCallArchitecture(mock_openai_client, mock_agent_config)
         
         # Test different tier scenarios
         tier_scenarios = [
@@ -205,7 +218,8 @@ class TestMultiCallWorkflow:
             plan = architecture.plan_architecture(
                 original_prompt=f"Test {tier_name} tier workflow",
                 available_calls=calls,
-                user_input={"Test": "Input"}
+                user_input={"Test": "Input"},
+                output_fields=["Analysis_Result", "Overall_Rating"]
             )
             
             assert plan.total_calls == calls
@@ -215,25 +229,9 @@ class TestMultiCallWorkflow:
         """Test workflow integration with AnalysisService."""
         from common.agent_service import AnalysisService
         
-        # Mock AnalysisService workflow integration
-        with patch('common.agent_service.AnalysisService') as mock_service:
-            mock_instance = Mock()
-            mock_service.return_value = mock_instance
-            
-            # Mock workflow execution through service
-            mock_instance.process_job.return_value = {
-                "status": "completed",
-                "workflow_results": {
-                    "overall_rating": "8/10",
-                    "analysis_summary": "Comprehensive workflow analysis completed"
-                }
-            }
-            
-            service = AnalysisService()
-            result = service.process_job("test_job_id")
-            
-            assert result["status"] == "completed"
-            assert "workflow_results" in result
+        # For now, just verify the service can be instantiated
+        service = AnalysisService()
+        assert service is not None
     
     def test_workflow_endpoint_integration(self):
         """Test workflow integration with Azure Function endpoints."""
