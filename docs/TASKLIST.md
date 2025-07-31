@@ -21,6 +21,10 @@
 - [x] Create 5 new focused universal tests (2,578 lines added)
 - [x] Restructure test directory from integration/unit to universal approach
 - [x] Implement test files for dynamic configuration, platform config, agent engine, endpoints, and workflow
+- [x] Update workflow engine tests to be behavior-driven
+- [x] Remove prescriptive test assertions about specific implementation details
+- [x] Add dynamic mock response generation for testing
+<!-- Updated from commit 61c9503 -->
 
 ### Configuration System Updates
 - [x] Simplify common/budget_config.py to lightweight wrapper
@@ -67,6 +71,7 @@
 - [x] Fix import errors in new universal test files
 - [x] Update test imports to use AnalysisService
 - [x] Set up proper test environment with mocks and TESTING_MODE
+- [x] Update workflow engine tests to focus on behavioral guarantees
 - [ ] Run 5 focused tests to validate universal system functionality
 - [ ] Test end-to-end workflow with business evaluation agent
 
