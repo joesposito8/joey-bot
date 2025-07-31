@@ -24,10 +24,19 @@ class TestMultiCallWorkflow:
         """Mock agent configuration for testing."""
         config = Mock()
         config.get_model.return_value = "gpt-4-turbo"
+        config.get_universal_setting.return_value = 4
+        
+        # Mock schema with output fields
+        config.schema = Mock()
         config.schema.output_fields = [
             Mock(name="Analysis_Result"),
             Mock(name="Overall_Rating")
         ]
+        
+        # Mock definition for prompts
+        config.definition = Mock()
+        config.definition.starter_prompt = "Test agent starter prompt"
+        
         return config
     
     @pytest.fixture
@@ -37,193 +46,166 @@ class TestMultiCallWorkflow:
         return self._setup_mock_responses(client)
     
     def _setup_mock_responses(self, client):
-        """Setup mock responses for different workflow stages."""
-        # Mock planning response
-        planning_response = Mock()
-        planning_output = Mock()
-        planning_content = Mock()
+        """Setup dynamic mock responses for workflow testing."""
+        def create_mock_response(content):
+            """Helper to create consistent mock response structure."""
+            response = Mock()
+            response.output = [Mock()]
+            response.output[0].content = [Mock()]
+            response.output[0].content[0].text = json.dumps(content)
+            return response
         
-        mock_plan = {
-            "strategy_explanation": "Three-stage analysis workflow",
-            "total_calls": 3,
-            "max_concurrent": 2,
-            "execution_order": [
-                ["planner"],
-                ["executor"], 
-                ["synthesizer"]
-            ],
-            "calls": [
-                {
-                    "call_id": "planner",
-                    "purpose": "Initial planning and analysis",
-                    "prompt": "Break down the analysis into key components",
-                    "dependencies": [],
-                    "is_summarizer": False
-                },
-                {
-                    "call_id": "executor",
-                    "purpose": "Execute detailed analysis",
-                    "prompt": "Analyze each component in detail",
-                    "dependencies": ["planner"],
-                    "is_summarizer": False
-                },
-                {
-                    "call_id": "synthesizer",
-                    "purpose": "Synthesize findings",
-                    "prompt": "Combine all analysis into final result",
-                    "dependencies": ["planner", "executor"],
-                    "is_summarizer": True
+        def generate_mock_plan(available_calls: int, max_concurrent: int = None):
+            """Generate a mock plan based on available calls."""
+            if max_concurrent is None:
+                max_concurrent = min(available_calls, 4)
+
+            # For single call, create minimal viable plan
+            if available_calls == 1:
+                return {
+                    "strategy_explanation": "Single-call analysis workflow",
+                    "total_calls": 1,
+                    "max_concurrent": 1,
+                    "calls": [{
+                        "call_id": "analysis_1",
+                        "purpose": "Complete analysis and synthesis",
+                        "prompt": "Analyze and synthesize results",
+                        "dependencies": [],
+                        "is_summarizer": True
+                    }],
+                    "execution_order": [["analysis_1"]]
                 }
-            ]
-        }
+
+            # For multiple calls, create dependency chain with parallel execution
+            calls = []
+            execution_order = []
+            current_batch = []
+            
+            for i in range(available_calls):
+                call_id = f"analysis_{i+1}"
+                
+                # Last call is always a summarizer
+                is_summarizer = (i == available_calls - 1)
+                
+                # Create dependencies - each call depends on previous batch
+                dependencies = []
+                if i > 0:
+                    # Depend on previous batch calls
+                    prev_batch_start = max(0, i - max_concurrent)
+                    dependencies = [f"analysis_{j+1}" for j in range(prev_batch_start, i)]
+                
+                calls.append({
+                    "call_id": call_id,
+                    "purpose": f"{'Synthesis' if is_summarizer else 'Analysis'} stage {i+1}",
+                    "prompt": f"Execute {'synthesis' if is_summarizer else 'analysis'} stage {i+1}",
+                    "dependencies": dependencies,
+                    "is_summarizer": is_summarizer
+                })
+                
+                # Add to current batch if space available and dependencies met
+                if len(current_batch) < max_concurrent:
+                    current_batch.append(call_id)
+                else:
+                    execution_order.append(current_batch)
+                    current_batch = [call_id]
+            
+            if current_batch:
+                execution_order.append(current_batch)
+
+            return {
+                "strategy_explanation": f"{available_calls}-call analysis workflow",
+                "total_calls": available_calls,
+                "max_concurrent": max_concurrent,
+                "calls": calls,
+                "execution_order": execution_order
+            }
         
-        planning_content.text = json.dumps(mock_plan)
-        planning_output.content = [planning_content]
-        planning_response.output = [planning_output]
+        def mock_create(**kwargs):
+            """Dynamic mock response generation based on input."""
+            if 'architecture_planning' in kwargs.get('model', ''):
+                # Extract available_calls from the prompt
+                prompt = kwargs['input'][0]['content'][0]['text']
+                available_calls = int(prompt.split('available_calls: ')[1].split('\n')[0])
+                return create_mock_response(generate_mock_plan(available_calls))
+            else:
+                # Analysis/execution response
+                return create_mock_response({
+                    "Analysis_Result": "Mock analysis output",
+                    "Overall_Rating": "8/10",
+                    "Key_Insights": ["Mock insight 1", "Mock insight 2"]
+                })
         
-        # Mock execution responses
-        execution_response = Mock()
-        execution_output = Mock()
-        execution_content = Mock()
-        execution_content.text = "Detailed execution analysis results"
-        execution_output.content = [execution_content]
-        execution_response.output = [execution_output]
-        
-        # Mock synthesis response
-        synthesis_response = Mock()
-        synthesis_output = Mock()  
-        synthesis_content = Mock()
-        synthesis_content.text = json.dumps({
-            "Overall_Rating": "8/10",
-            "Analysis_Summary": "Comprehensive analysis reveals strong potential",
-            "Key_Insights": ["Market demand validated", "Technical feasibility confirmed"]
-        })
-        synthesis_output.content = [synthesis_content]
-        synthesis_response.output = [synthesis_output]
-        
-        # Setup client response sequence
-        client.responses.create.side_effect = [
-            planning_response,    # Planning call
-            execution_response,   # Execution call
-            synthesis_response    # Synthesis call
-        ]
+        client.responses.create.side_effect = mock_create
         
         return client
     
-    def test_workflow_planning(self, mock_openai_client, mock_agent_config):
-        """Test workflow planning stage."""
+    def test_basic_tier_plan_requirements(self, mock_openai_client, mock_agent_config):
+        """Test single-call budget produces valid minimal plan."""
         architecture = MultiCallArchitecture(mock_openai_client, mock_agent_config)
         
-        user_input = {
-            "Idea_Overview": "Test scenario",
-            "Deliverable": "Analysis system",
-            "Motivation": "Validate workflow"
-        }
-        
-        # Test planning stage
         plan = architecture.plan_architecture(
-            original_prompt="Execute workflow analysis",
-            available_calls=3,
-            user_input=user_input,
-            output_fields=["Analysis_Result", "Overall_Rating"]
+            original_prompt="Basic analysis",
+            available_calls=1,
+            user_input={"test": "input"},
+            output_fields=["Analysis_Result"]
         )
         
-        # Verify workflow structure
-        assert plan.total_calls == 3
-        assert len(plan.calls) == 3
-        assert len(plan.execution_order) == 3
-        
-        # Verify stages
-        call_ids = [call.call_id for call in plan.calls]
-        assert "call_1" in call_ids  # First stage
-        assert "call_2" in call_ids  # Second stage
-        assert "call_3" in call_ids  # Final stage (summarizer)
-        
-        # Verify synthesizer is marked
+        # Verify minimal viable plan structure
+        assert plan.total_calls == 1
+        assert len(plan.calls) == 1
+        assert len(plan.execution_order) == 1  # Single batch
         synthesizer_calls = [call for call in plan.calls if call.is_summarizer]
-        assert len(synthesizer_calls) == 1
-        assert synthesizer_calls[0].call_id == "call_3"  # Last call is summarizer
+        assert len(synthesizer_calls) == 1  # Must have summarizer
     
-    def test_execution_order(self, mock_openai_client, mock_agent_config):
-        """Test workflow execution follows dependency order."""
+    def test_multi_call_dependencies(self, mock_openai_client, mock_agent_config):
+        """Test plans with multiple calls have valid dependency structure."""
         architecture = MultiCallArchitecture(mock_openai_client, mock_agent_config)
         
-        user_input = {
-            "Test_Input": "Workflow ordering test"
-        }
-        
         plan = architecture.plan_architecture(
-            original_prompt="Test execution order",
+            original_prompt="Complex analysis",
             available_calls=3,
-            user_input=user_input,
+            user_input={"test": "input"},
             output_fields=["Analysis_Result", "Overall_Rating"]
         )
         
-        # Verify execution order respects dependencies
-        execution_order = plan.execution_order
-        
-        # First batch should contain first call (no dependencies)
-        first_batch = execution_order[0]
-        assert "call_1" in first_batch
-        
-        # Later batches should contain dependent calls
-        later_calls = []
-        for batch in execution_order[1:]:
-            later_calls.extend(batch)
-        
-        assert "call_2" in later_calls  # Second stage
-        assert "call_3" in later_calls  # Final summarizer
+        # Verify dependency graph
+        for call in plan.calls:
+            for dep_id in call.dependencies:
+                # Dependency must exist
+                assert any(c.call_id == dep_id for c in plan.calls)
+                # Dependency must execute before dependent call
+                dep_batch = next(i for i, batch in enumerate(plan.execution_order) 
+                               if dep_id in batch)
+                call_batch = next(i for i, batch in enumerate(plan.execution_order) 
+                                if call.call_id in batch)
+                assert dep_batch < call_batch
     
-    def test_multi_tier_scaling(self, mock_openai_client, mock_agent_config):
-        """Test workflow scales across budget tiers."""
+    def test_parallel_execution_batching(self, mock_openai_client, mock_agent_config):
+        """Test parallel execution respects max_concurrent and dependencies."""
         architecture = MultiCallArchitecture(mock_openai_client, mock_agent_config)
+        max_concurrent = mock_agent_config.get_universal_setting('max_concurrent_calls')
         
-        # Test different tier scenarios
-        tier_scenarios = [
-            (1, "basic"),     # Single call workflow
-            (3, "standard"),  # Three call workflow  
-            (5, "premium")    # Five call workflow
-        ]
+        plan = architecture.plan_architecture(
+            original_prompt="Parallel analysis",
+            available_calls=5,  # Use premium tier to test parallel execution
+            user_input={"test": "input"},
+            output_fields=["Analysis_Result"]
+        )
         
-        for calls, tier_name in tier_scenarios:
-            # Adjust mock for different call counts
-            mock_plan = {
-                "strategy_explanation": f"Optimized {tier_name} tier workflow",
-                "total_calls": calls,
-                "max_concurrent": min(calls, 3),
-                "calls": [
-                    {
-                        "call_id": f"call_{i}",
-                        "purpose": f"Analysis stage {i}",
-                        "prompt": f"Execute analysis {i}",
-                        "dependencies": [] if i == 1 else [f"call_{i-1}"],
-                        "is_summarizer": i == calls
-                    }
-                    for i in range(1, calls + 1)
-                ],
-                "execution_order": [[f"call_{i}"] for i in range(1, calls + 1)]
-            }
+        # Verify batch constraints
+        for batch in plan.execution_order:
+            assert len(batch) <= max_concurrent
             
-            # Update mock response
-            planning_response = Mock()
-            planning_output = Mock()
-            planning_content = Mock()
-            planning_content.text = json.dumps(mock_plan)
-            planning_output.content = [planning_content]
-            planning_response.output = [planning_output]
-            
-            architecture.client.responses.create.return_value = planning_response
-            
-            # Test planning
-            plan = architecture.plan_architecture(
-                original_prompt=f"Test {tier_name} tier workflow",
-                available_calls=calls,
-                user_input={"Test": "Input"},
-                output_fields=["Analysis_Result", "Overall_Rating"]
-            )
-            
-            assert plan.total_calls == calls
-            assert len(plan.calls) == calls
+            # Verify all dependencies for this batch completed
+            completed_calls = set()
+            for prior_batch in plan.execution_order:
+                if prior_batch == batch:
+                    break
+                completed_calls.update(prior_batch)
+                
+            for call_id in batch:
+                call = next(c for c in plan.calls if c.call_id == call_id)
+                assert all(dep in completed_calls for dep in call.dependencies)
 
     def test_workflow_service_integration(self):
         """Test workflow integration with AnalysisService."""
