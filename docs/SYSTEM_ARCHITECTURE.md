@@ -3,11 +3,12 @@
 **Last Updated**: 2025-01-30  
 **System Status**: RUTHLESS REDESIGN - Documentation Complete, Implementation Ready  
 **Recent Changes**: 
-- Consolidated platform configuration into platform.yaml (removed prompts.yaml)
-- Updated BudgetTierConfig and budget handling to use platform settings
-- Fixed test imports and configuration loading
-- Added dictionary support to configuration models
-<!-- Updated to reflect platform configuration consolidation in commit d1ddb99 -->
+- Added universal settings access via FullAgentConfig (get_universal_setting)
+- Simplified MultiCallArchitecture to use agent config for settings
+- Improved test structure with behavior-driven testing
+- Made workflow engine tests focus on behavioral guarantees
+- Unified platform configuration access patterns
+<!-- Updated to reflect universal settings integration in commit 9ad9008 -->
 
 ## Overview
 
@@ -110,7 +111,7 @@ The Universal AI Agent Platform enables ANY type of AI-powered analysis through 
     ├── 📄 test_dynamic_configuration.py    # NEW: Configuration loading tests
     ├── 📄 test_platform_config.py          # NEW: Platform configuration tests
     ├── 📄 test_universal_endpoints.py      # NEW: API integration tests
-    └── 📄 test_workflow_engine.py          # NEW: Multi-call workflow tests
+    └── 📄 test_workflow_engine.py          # NEW: Behavior-driven workflow tests
 ```
 
 ### Current System Flow
@@ -132,13 +133,35 @@ GET /api/process_idea?id={job_id}          # Extract agent from job metadata
 class FullAgentConfig:
     """Combines agent YAML + Google Sheets schema + universal prompts."""
     
-    def get_budget_tiers(self):  # Line 170
-        """Load universal budget tiers from platform.yaml"""
-        return self._load_from_platform_yaml('budget_tiers')
+    def get_universal_setting(self, setting_name: str, default: Any = None) -> Any:
+        """Get a universal setting from platform config."""
+        # Access platform.yaml universal_settings
+        return self.universal_config.get('platform', {}).get('universal_settings', {}).get(setting_name, default)
     
-    def get_model(self, model_type: str):  # Line 180
+    def get_model(self, model_type: str) -> str:
         """Resolve model with agent overrides or platform defaults"""
-        return self._get_from_platform_yaml('models', model_type)
+        # Agent override takes precedence
+        if self.definition.models and model_type in self.definition.models:
+            return self.definition.models[model_type]
+        # Fall back to platform model
+        return self.universal_config.get('models', {}).get(model_type, 'gpt-4o-mini')
+
+    def get_budget_tiers(self) -> List[BudgetTierConfig]:
+        """Get universal budget tiers for all agents."""
+        if not self.universal_config or 'platform' not in self.universal_config:
+            return []
+            
+        platform_config = self.universal_config['platform']
+        if 'budget_tiers' not in platform_config:
+            return []
+        
+        return [BudgetTierConfig(
+            name=tier['name'],
+            price=float(tier['price']),
+            calls=int(tier['calls']),
+            description=tier['description'],
+            deliverables=tier.get('deliverables', [])
+        ) for tier in platform_config['budget_tiers']]
 ```
 
 ### Current Core Components
@@ -184,8 +207,15 @@ class BudgetConfigManager:
 #### 🔧 **Tune ALL Agents** (Edit `platform.yaml`)
 ```yaml
 platform:
+  universal_settings:
+    enable_multi_agent: true
+    enable_caching: true
+    max_concurrent_calls: 4
+    testing_mode: true
+    
   models:
     analysis: "gpt-4o-mini"  # Changes model for all agents
+    
   budget_tiers:
     - name: "basic"
       price: 1.00
