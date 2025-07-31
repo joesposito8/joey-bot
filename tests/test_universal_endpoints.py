@@ -20,7 +20,7 @@ sys.path.append(os.path.join(current_dir, '../idea-guy'))
 
 # Set testing mode
 os.environ["TESTING_MODE"] = "true"
-os.environ["IDEA_GUY_SHEET_ID"] = "test_sheet_id_for_testing"
+os.environ["IDEA_GUY_SHEET_ID"] = "1bGxOTEPxx3vF3UwPAK7SBUAt1dNqVWAvl3W07Zdj4rs"
 
 
 class TestUniversalEndpointArchitecture:
@@ -99,9 +99,9 @@ class TestUniversalEndpointArchitecture:
         }
         
         success_response = create_success_response(success_data)
-        assert success_response.status_code == 200
+        assert success_response["status_code"] == 200
         
-        response_data = json.loads(success_response.get_body())
+        response_data = json.loads(success_response["body"])
         assert response_data["status"] == "success"
         assert "data" in response_data
         assert "testing_mode" in response_data
