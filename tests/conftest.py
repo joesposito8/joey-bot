@@ -1,12 +1,39 @@
-"""
-Pytest configuration and shared fixtures for Universal AI Agent Platform tests.
-"""
+"""Common test configuration and fixtures."""
 
+import os
 import pytest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 from pathlib import Path
 from common.config.models import FieldConfig, BudgetTierConfig
 
+# Set testing mode
+os.environ["TESTING_MODE"] = "true"
+os.environ["IDEA_GUY_SHEET_ID"] = "test_sheet_id_for_testing"
+os.environ["GOOGLE_SHEETS_KEY_PATH"] = "/tmp/mock_key.json"
+
+@pytest.fixture(autouse=True)
+def mock_openai():
+    """Mock OpenAI client to prevent API calls."""
+    with patch('openai.OpenAI') as mock_client:
+        mock_instance = Mock()
+        mock_instance.api_key = "mock-key"
+        mock_client.return_value = mock_instance
+        yield mock_instance
+
+@pytest.fixture(autouse=True)
+def mock_sheets():
+    """Mock Google Sheets client to prevent API calls."""
+    with patch('gspread.authorize') as mock_authorize:
+        mock_client = Mock()
+        mock_spreadsheet = Mock()
+        mock_worksheet = Mock()
+        
+        mock_client.open_by_key.return_value = mock_spreadsheet
+        mock_spreadsheet.get_worksheet.return_value = mock_worksheet
+        mock_worksheet.get_all_values.return_value = [["Test", "Data"]]
+        
+        mock_authorize.return_value = mock_client
+        yield mock_client
 
 @pytest.fixture
 def mock_google_sheets_client():
@@ -14,7 +41,6 @@ def mock_google_sheets_client():
     client = Mock()
     client.get_sheet_data = Mock()
     return client
-
 
 @pytest.fixture
 def sample_budget_tiers():
@@ -40,7 +66,6 @@ def sample_budget_tiers():
         )
     ]
 
-
 @pytest.fixture
 def sample_field_configs():
     """Sample field configurations for testing."""
@@ -55,7 +80,6 @@ def sample_field_configs():
         ]
     }
 
-
 @pytest.fixture
 def valid_sheet_data():
     """Valid 3-row sheet data for schema parsing tests."""
@@ -65,7 +89,6 @@ def valid_sheet_data():
         ["ID", "Time", "Idea_Overview", "Deliverable", "Motivation", "Novelty_Rating", "Novelty_Rationale"]
     ]
 
-
 @pytest.fixture
 def sample_user_input():
     """Sample user input for testing."""
@@ -74,7 +97,6 @@ def sample_user_input():
         "Deliverable": "iOS/Android app with workout plans",
         "Motivation": "Help people stay healthy"
     }
-
 
 @pytest.fixture
 def temp_yaml_file(tmp_path):

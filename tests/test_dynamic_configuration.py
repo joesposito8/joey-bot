@@ -467,7 +467,7 @@ class TestFullAgentConfiguration:
         mock_reader_class.return_value = mock_reader
         
         # Mock sheets client
-        with patch('common.utils.get_sheets_client') as mock_get_client:
+        with patch('common.utils.get_google_sheets_client') as mock_get_client:
             mock_get_client.return_value = Mock()
             
             # Test config creation
