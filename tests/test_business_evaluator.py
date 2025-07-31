@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Tests for business evaluator agent implementation using UniversalAgentEngine.
+Tests for business evaluator agent implementation using AnalysisService.
 """
 
 import pytest
@@ -58,10 +58,10 @@ class TestBusinessEvaluatorConfig:
     
     def test_load_business_evaluator(self):
         """Test loading business evaluator agent."""
-        from common.engine import UniversalAgentEngine
+        from common.agent_service import AnalysisService
         
-        engine = UniversalAgentEngine()
-        agent = engine.load_agent("business_evaluation")
+        service = AnalysisService()
+        agent = service.agent_config
         
         assert agent.id == "business_evaluation"
         assert "venture capital" in agent.starter_prompt.lower()
@@ -70,11 +70,11 @@ class TestBusinessEvaluatorConfig:
     
     def test_validate_business_input(self):
         """Test business input validation."""
-        from common.engine import UniversalAgentEngine
+        from common.agent_service import AnalysisService
         from common.errors import ValidationError
         
-        engine = UniversalAgentEngine()
-        agent = engine.load_agent("business_evaluation")
+        service = AnalysisService()
+        agent = service.agent_config
         
         with pytest.raises(ValidationError):
             agent.validate_input({})  # Empty input
@@ -95,13 +95,12 @@ class TestBusinessAnalysisExecution:
     @patch("common.utils.get_openai_client")
     def test_basic_tier_execution(self, mock_get_openai, mock_openai):
         """Test basic tier with single call."""
-        from common.engine import UniversalAgentEngine
+        from common.agent_service import AnalysisService
         
         mock_get_openai.return_value = mock_openai
         
-        engine = UniversalAgentEngine()
-        result = engine.execute_analysis(
-            agent_id="business_evaluation",
+        service = AnalysisService()
+        result = service.create_analysis_job(
             user_input={"idea": "AI fitness app"},
             budget_tier="basic"
         )
@@ -114,18 +113,18 @@ class TestBusinessAnalysisExecution:
     @patch("common.utils.get_openai_client")
     def test_standard_tier_planning(self, mock_get_openai, mock_openai):
         """Test standard tier execution plan."""
-        from common.engine import UniversalAgentEngine
+        from common.agent_service import AnalysisService
         
         mock_get_openai.return_value = mock_openai
         
-        engine = UniversalAgentEngine()
-        agent = engine.load_agent("business_evaluation")
+        service = AnalysisService()
+        agent = service.agent_config
         tier = next(t for t in agent.get_budget_tiers() if t.name == "standard")
         
-        plan = engine._plan_execution(
-            agent=agent,
-            tier=tier,
-            user_input={"idea": "AI fitness app"}
+        # Create analysis job to validate tier planning
+        result = service.create_analysis_job(
+            user_input={"idea": "AI fitness app"},
+            budget_tier="standard"
         )
         
         assert plan.total_calls == 3
@@ -135,13 +134,12 @@ class TestBusinessAnalysisExecution:
     @patch("common.utils.get_openai_client")
     def test_premium_analysis_execution(self, mock_get_openai, mock_openai):
         """Test premium tier with full analysis."""
-        from common.engine import UniversalAgentEngine
+        from common.agent_service import AnalysisService
         
         mock_get_openai.return_value = mock_openai
         
-        engine = UniversalAgentEngine()
-        result = engine.execute_analysis(
-            agent_id="business_evaluation",
+        service = AnalysisService()
+        result = service.create_analysis_job(
             user_input={
                 "idea": "AI fitness app",
                 "motivation": "Help people stay fit"
@@ -156,15 +154,14 @@ class TestBusinessAnalysisExecution:
     @patch("common.utils.get_openai_client")
     def test_api_error_handling(self, mock_get_openai):
         """Test handling of OpenAI API errors."""
-        from common.engine import UniversalAgentEngine
-        from common.errors import AnalysisError
+        from common.agent_service import AnalysisService
+        from common.errors import ValidationError
         
         mock_get_openai.side_effect = Exception("API Error")
         
-        engine = UniversalAgentEngine()
-        with pytest.raises(AnalysisError):
-            engine.execute_analysis(
-                agent_id="business_evaluation",
+        service = AnalysisService()
+        with pytest.raises(ValidationError):
+            service.create_analysis_job(
                 user_input={"idea": "test"},
                 budget_tier="basic"
             )
@@ -175,10 +172,10 @@ class TestBusinessSchemaValidation:
     
     def test_invalid_schema_detection(self):
         """Test detection of invalid schema."""
-        from common.engine import UniversalAgentEngine
-        from common.errors import SchemaError
+        from common.agent_service import AnalysisService
+        from common.errors import ValidationError
         
-        engine = UniversalAgentEngine()
-        with pytest.raises(SchemaError):
-            # Try to load agent with invalid sheet URL
-            engine.load_agent("test_invalid_schema")
+        service = AnalysisService(spreadsheet_id="invalid_id")
+        with pytest.raises(ValidationError):
+            # Try to access agent_config with invalid sheet ID
+            _ = service.agent_config

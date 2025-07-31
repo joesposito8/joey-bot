@@ -28,7 +28,7 @@
 - [x] Consolidate universal templates and budget tiers in platform.yaml
 - [x] Update FullAgentConfig to use universal prompt system
 - [x] Create unified error handling system in common/errors.py
-- [x] Implement initial UniversalAgentEngine skeleton
+- [x] Remove UniversalAgentEngine in favor of existing AnalysisService
 <!-- Updated from commit 9fdb319 -->
 
 ## Pending Tasks
@@ -37,7 +37,7 @@
 
 #### Universal Platform Foundation
 - [ ] Create `platform.yaml` with universal configuration for ALL agents
-- [ ] Implement `common/engine.py` with UniversalAgentEngine class
+- [ ] Enhance `common/agent_service.py` with improved configuration support
 - [ ] Create `common/config.py` for universal configuration loading system
 - [ ] Implement `common/workflow.py` for universal multi-call workflow execution
 
@@ -55,21 +55,20 @@
 
 ### Core Functionality
 
-- [ ] Complete UniversalAgentEngine implementation with execution planning
+- [ ] Complete AnalysisService implementation with execution planning
 - [ ] Add test coverage for error handling scenarios
 - [ ] Validate real Google Sheets integration with platform.yaml
 <!-- Updated from commit 9fdb319 -->
 
 #### Testing & Validation
 - [ ] Fix import errors in new universal test files
-- [ ] Implement missing UniversalAgentEngine class to resolve test imports
+- [ ] Update test imports to use AnalysisService
 - [ ] Run 5 focused tests to validate universal system functionality
 - [ ] Ensure all tests pass with TESTING_MODE=true (no API charges)
 - [ ] Test end-to-end workflow with business evaluation agent
 
 #### File Cleanup
 - [ ] Delete `common/budget_config.py` after functionality moved to platform.yaml
-- [ ] Delete `common/agent_service.py` after replaced by UniversalAgentEngine
 - [ ] Remove unused imports and references to deleted files
 - [ ] Update any remaining hardcoded references to business evaluation
 
@@ -78,7 +77,7 @@
 #### System Validation
 - [ ] Test universal system with existing business evaluation agent
 - [ ] Verify Google Sheets schema loading works with new configuration system  
-- [ ] Validate OpenAI multi-call architecture with UniversalAgentEngine
+- [ ] Validate OpenAI multi-call architecture with AnalysisService
 - [ ] Test cost tracking and logging with universal system
 
 #### Production Readiness
@@ -110,14 +109,14 @@
 ## Next Steps
 
 1. **Fix Test Imports**: Resolve import errors in new universal tests by implementing missing classes
-2. **Create Universal Engine**: Implement UniversalAgentEngine to replace current AnalysisService
+2. **Enhance Analysis Service**: Improve AnalysisService with universal configuration
 3. **Update Azure Functions**: Add agent parameter support to all endpoints
 4. **Test End-to-End**: Validate complete workflow with business evaluation agent
 5. **Create Second Agent**: Prove universality by creating HR analysis agent
 
 ## Key Dependencies
 
-- **UniversalAgentEngine Implementation**: Required for tests to pass and universal system to function
+- **AnalysisService Enhancement**: Required for tests to pass and universal system to function
 - **Platform.yaml Creation**: Needed to consolidate universal configuration
 - **Agent Parameter Support**: Required for Azure Functions to work with multiple agent types
 - **Google Sheets Schema**: Must maintain compatibility with dynamic schema loading

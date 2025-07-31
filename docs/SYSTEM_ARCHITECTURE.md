@@ -3,7 +3,7 @@
 **Last Updated**: 2025-01-30  
 **System Status**: RUTHLESS REDESIGN - Documentation Complete, Implementation Ready  
 **Recent Changes**: 
-- Created UniversalAgentEngine with service account handling
+- Removed UniversalAgentEngine in favor of existing AnalysisService
 - Added consolidated error types in errors.py
 - Created platform.yaml for universal configuration
 - Implemented Google Sheets auth from local.settings.json
@@ -16,7 +16,7 @@ The Universal AI Agent Platform enables ANY type of AI-powered analysis through 
 **Core Principle**: Adding a new agent type requires ZERO code changes - only configuration files.
 
 **Key Features**:
-- **Universal Engine**: Single `UniversalAgentEngine` handles all agent types (PLANNED)
+- **Analysis Service**: Single `AnalysisService` handles all agent types through configuration
 - **Platform Configuration**: Universal prompts, models, and budget tiers in `common/prompts.yaml` (CURRENT)
 - **Agent Personalities**: Domain expertise through agent-specific YAML files in `agents/`
 - **Dynamic Schemas**: Input/output fields defined in Google Sheets by users
@@ -119,7 +119,7 @@ The Universal AI Agent Platform enables ANY type of AI-powered analysis through 
 📁 joey-bot/
 ├── 📄 platform.yaml                       # PLANNED: Universal config for ALL agents
 ├── 📁 common/
-│   ├── 📄 engine.py                        # PLANNED: UniversalAgentEngine
+│   ├── 📄 agent_service.py                # Universal agent orchestration service
 │   ├── 📄 config.py                        # PLANNED: Universal config loading
 │   └── 📄 workflow.py                      # PLANNED: Universal multi-call workflow
 └── [Other files remain the same]
@@ -135,7 +135,7 @@ User Request → Azure Function → AnalysisService → Configuration Loading �
 
 ### PLANNED Universal System Flow
 ```
-User Request → Azure Function → UniversalAgentEngine → Configuration Loading → Analysis Execution → Results
+User Request → Azure Function → AnalysisService → Configuration Loading → Analysis Execution → Results
              (idea-guy/*.py)   (common/engine.py)    (platform.yaml +     (workflow.py)
                                                      agents/*.yaml +
                                                      Google Sheets)
@@ -226,7 +226,7 @@ GET /api/get_instructions?agent={agent_id}  # PLANNED parameter
 │
 ├─ idea-guy/get_instructions/__init__.py:main()  # TO BE UPDATED
 │  ├─ agent_id = req.params.get('agent')  # PLANNED: Required parameter
-│  ├─ engine = UniversalAgentEngine()  # PLANNED: Replace AnalysisService
+│  ├─ service = AnalysisService()      # Universal agent orchestration
 │  ├─ config = engine.load_config(agent_id)  # PLANNED: Load platform + agent + schema
 │  └─ Return instructions for ANY agent type
 ```
@@ -245,7 +245,7 @@ GET /api/get_pricepoints
 │
 ├─ CURRENT: Uses AnalysisService + FullAgentConfig.get_budget_tiers()
 │  └─ Budget tiers loaded from common/prompts.yaml:16-55
-└─ PLANNED: Direct access via UniversalAgentEngine.platform_config
+└─ Direct access via AnalysisService.agent_config
 ```
 
 #### C. Execute Analysis Endpoint (idea-guy/execute_analysis/__init__.py)
