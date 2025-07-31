@@ -65,6 +65,19 @@ class BudgetTierConfig:
     description: str  # Human-readable description
     deliverables: List[str] = None  # Optional list of deliverables
 
+    def __post_init__(self):
+        """Validate budget tier configuration."""
+        if self.deliverables is None:
+            self.deliverables = []
+        if self.price <= 0:
+            raise ValueError("Price must be positive")
+        if self.calls <= 0:
+            raise ValueError("Calls must be positive")
+        if not self.name or not self.name.strip():
+            raise ValueError("Name cannot be empty")
+        if not self.description or len(self.description.strip()) < 10:
+            raise ValueError("Description must be at least 10 characters")
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'BudgetTierConfig':
         """Create BudgetTierConfig from dictionary data."""
@@ -75,11 +88,6 @@ class BudgetTierConfig:
             description=data['description'],
             deliverables=data.get('deliverables', []),
         )
-
-    def __post_init__(self):
-        """Set default empty deliverables if None."""
-        if self.deliverables is None:
-            self.deliverables = []
 
 
 @dataclass

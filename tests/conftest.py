@@ -9,8 +9,9 @@ from common.config.models import FieldConfig, BudgetTierConfig
 
 # Set testing mode
 os.environ["TESTING_MODE"] = "true"
-os.environ["IDEA_GUY_SHEET_ID"] = "test_sheet_id_for_testing"
-os.environ["GOOGLE_SHEETS_KEY_PATH"] = "/tmp/mock_key.json"
+# Use real Google Sheets credentials for testing (API is free)
+os.environ["IDEA_GUY_SHEET_ID"] = "1bGxOTEPxx3vF3UwPAK7SBUAt1dNqVWAvl3W07Zdj4rs"  
+os.environ["GOOGLE_SHEETS_KEY_PATH"] = "/home/joey/Projects/joey-bot/.keys/joey-bot-465403-d2eb14543555.json"
 os.environ["OPENAI_API_KEY"] = "test-key-12345"
 
 
@@ -106,20 +107,8 @@ def mock_openai():
         mock_client.return_value = mock_instance
         yield mock_instance
 
-@pytest.fixture(autouse=True)
-def mock_sheets():
-    """Mock Google Sheets client to prevent API calls."""
-    with patch('gspread.authorize') as mock_authorize:
-        mock_client = Mock()
-        mock_spreadsheet = Mock()
-        mock_worksheet = Mock()
-        
-        mock_client.open_by_key.return_value = mock_spreadsheet
-        mock_spreadsheet.get_worksheet.return_value = mock_worksheet
-        mock_worksheet.get_all_values.return_value = [["Test", "Data"]]
-        
-        mock_authorize.return_value = mock_client
-        yield mock_client
+# Google Sheets API is free - no need to mock it
+# Tests will use real Google Sheets API with test spreadsheet
 
 @pytest.fixture
 def mock_google_sheets_client():

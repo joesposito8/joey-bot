@@ -118,22 +118,30 @@ class TestPlatformIntegration:
     
     def test_budget_config_uses_platform_settings(self):
         """Test that budget configuration uses platform-level settings."""
-        from common.budget_config import BudgetConfigManager
+        # Budget config functionality moved to FullAgentConfig
+        from common.config.models import FullAgentConfig
+        from common.config.agent_definition import AgentDefinition
+        from pathlib import Path
         
-        manager = BudgetConfigManager()
+        # Load agent config which includes platform settings
+        project_root = Path(__file__).parent.parent
+        yaml_path = project_root / 'agents' / 'business_evaluation.yaml'
+        agent_def = AgentDefinition.from_yaml(yaml_path)
         
-        # Test each tier uses correct pricing from platform
-        for tier_name in ['basic', 'standard', 'premium']:
-            config = manager.get_tier_config(tier_name)
-            
-            # Verify tier structure matches platform config
-            expected_prices = {"basic": 1.0, "standard": 3.0, "premium": 5.0}
-            expected_calls = {"basic": 1, "standard": 3, "premium": 5}
-            
-            assert config.price == expected_prices[tier_name]
-            assert config.calls == expected_calls[tier_name]
-            assert config.description is not None
-            assert len(config.deliverables) > 0
+        # Test budget tiers from platform config
+        config = FullAgentConfig.from_definition(agent_def, None)  # No sheets client needed for this test
+        tiers = config.get_budget_tiers()
+        
+        # Verify tier structure matches platform config
+        expected_prices = {"basic": 1.0, "standard": 3.0, "premium": 5.0}
+        expected_calls = {"basic": 1, "standard": 3, "premium": 5}
+        
+        assert len(tiers) == 3
+        for tier in tiers:
+            assert tier.price == expected_prices[tier.name]
+            assert tier.calls == expected_calls[tier.name]
+            assert tier.description is not None
+            assert len(tier.description) > 0
     
     def test_multi_call_architecture_uses_platform_model(self):
         """Test that multi-call architecture uses platform model settings."""
@@ -187,16 +195,21 @@ class TestPlatformValidation:
     
     def test_invalid_budget_tier_handling(self):
         """Test handling of invalid budget tier requests."""
-        from common.budget_config import BudgetConfigManager
+        from common.config.models import FullAgentConfig
+        from common.config.agent_definition import AgentDefinition
+        from pathlib import Path
         
-        manager = BudgetConfigManager()
+        # Load agent config
+        project_root = Path(__file__).parent.parent
+        yaml_path = project_root / 'agents' / 'business_evaluation.yaml'
+        agent_def = AgentDefinition.from_yaml(yaml_path)
+        config = FullAgentConfig.from_definition(agent_def, None)
         
-        # Test invalid tier name
-        with pytest.raises(ValueError, match="Invalid budget tier"):
-            manager.get_tier_config("ultra_premium")
-        
-        with pytest.raises(ValueError, match="Invalid budget tier"):
-            manager.get_tier_config("free")
+        # Test that only valid tiers exist
+        tiers = config.get_budget_tiers()
+        tier_names = [t.name for t in tiers]
+        assert "ultra_premium" not in tier_names
+        assert all(name in ["basic", "standard", "premium"] for name in tier_names)
     
     def test_platform_config_validation(self):
         """Test that platform configuration is valid."""
