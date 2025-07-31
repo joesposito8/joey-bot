@@ -1,6 +1,7 @@
 """Common test configuration and fixtures."""
 
 import os
+import json
 import pytest
 from unittest.mock import Mock, patch
 from pathlib import Path
@@ -11,6 +12,7 @@ os.environ["TESTING_MODE"] = "true"
 os.environ["IDEA_GUY_SHEET_ID"] = "test_sheet_id_for_testing"
 os.environ["GOOGLE_SHEETS_KEY_PATH"] = "/tmp/mock_key.json"
 os.environ["OPENAI_API_KEY"] = "test-key-12345"
+
 
 @pytest.fixture(autouse=True)
 def mock_openai():

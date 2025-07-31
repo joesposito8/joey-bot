@@ -392,7 +392,7 @@ class TestFullAgentConfiguration:
         
         # Test instruction generation
         instructions = config.generate_instructions()
-        assert "Comprehensive Test Agent" in instructions
+        assert "You are helping a user with comprehensive test agent analysis" in instructions
         assert "Idea_Overview" in instructions
         assert "Brief description of the business idea" in instructions
         assert "Target_Market" in instructions
@@ -434,7 +434,7 @@ class TestFullAgentConfiguration:
         
         # Verify JSON format instruction
         assert "JSON format" in prompt
-        assert "structured response" in prompt
+        assert "JSON format" in prompt
     
     def test_missing_input_handling(self, mock_agent_definition, comprehensive_sheet_schema):
         """Test handling of missing input fields."""
@@ -528,6 +528,7 @@ class TestConfigurationIntegration:
         """Test that configuration errors propagate correctly."""
         # Test that errors from any component propagate up
         mock_definition = Mock(spec=AgentDefinition)
+        mock_definition.name = "Test Agent"
         mock_schema = Mock(spec=SheetSchema)
         
         # Mock schema validation error

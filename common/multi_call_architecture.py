@@ -109,8 +109,8 @@ class MultiCallArchitecture:
                 response.output[0].content = [Mock()]
                 response.output[0].content[0].text = json.dumps({
                     "strategy_explanation": "Test workflow",
-                    "total_calls": available_calls,
-                    "max_concurrent": min(4, available_calls),
+                    "total_calls": int(str(available_calls)) if not isinstance(available_calls, int) else available_calls,
+                    "max_concurrent": 4,  # Fixed value for testing
                     "calls": [
                         {
                             "call_id": f"call_{i}",

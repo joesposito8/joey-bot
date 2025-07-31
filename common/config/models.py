@@ -17,6 +17,11 @@ class FieldConfig:
     description: str  # Row 2: Field description for prompts
     column_index: int  # Which column in sheet
 
+    def __post_init__(self):
+        """Validate field configuration."""
+        if self.type not in ["user input", "bot output", "ID", "Time"]:
+            raise ValueError(f"Invalid field type '{self.type}'. Must be one of: user input, bot output, ID, Time")
+
 
 @dataclass
 class SheetSchema:
@@ -44,6 +49,10 @@ class SheetSchema:
             headers.append(field.name)
 
         return headers
+
+    def generate_output_headers(self) -> List[str]:
+        """Get output field names in order."""
+        return [field.name for field in self.output_fields]
 
 
 @dataclass
