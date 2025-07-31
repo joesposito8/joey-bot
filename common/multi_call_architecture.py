@@ -390,35 +390,6 @@ class MultiCallArchitecture:
             "model": agent_config.get_model('analysis')
         }
     
-    def _inject_dependencies(
-        self, 
-        prompt: str, 
-        dependencies: List[str], 
-        previous_results: Dict[str, Any]
-    ) -> str:
-        """Inject results from dependency calls into the prompt.
-        
-        Args:
-            prompt: Original prompt
-            dependencies: List of call IDs this call depends on
-            previous_results: Results from previous calls
-            
-        Returns:
-            Enhanced prompt with dependency results
-        """
-        if not dependencies:
-            return prompt
-        
-        # For now, just note the dependencies in the prompt
-        # In a full implementation, we'd wait for and retrieve the actual results
-        dependency_context = "\\n\\nCONTEXT FROM PREVIOUS ANALYSIS CALLS:\\n"
-        for dep_id in dependencies:
-            if dep_id in previous_results:
-                dependency_context += f"- {dep_id}: {previous_results[dep_id].get('status', 'completed')}\\n"
-            else:
-                dependency_context += f"- {dep_id}: pending\\n"
-        
-        return prompt + dependency_context
 
 
 def create_multi_call_analysis(
