@@ -29,21 +29,22 @@
 - [x] Update FullAgentConfig to use universal prompt system
 - [x] Create unified error handling system in common/errors.py
 - [x] Remove UniversalAgentEngine in favor of existing AnalysisService
-<!-- Updated from commit 9fdb319 -->
+- [x] Update system architecture docs to reflect current state
+<!-- Updated from commit 2f23a48 -->
 
 ## Pending Tasks
 
 ### Phase 2: Core Implementation (Current Priority)
 
 #### Universal Platform Foundation
-- [ ] Create `platform.yaml` with universal configuration for ALL agents
+- [x] Create `platform.yaml` with universal configuration for ALL agents
 - [ ] Enhance `common/agent_service.py` with improved configuration support
 - [ ] Create `common/config.py` for universal configuration loading system
 - [ ] Implement `common/workflow.py` for universal multi-call workflow execution
 
 #### Azure Functions Universal Updates
 - [ ] Update `idea-guy/get_instructions/__init__.py` to accept agent parameter
-- [ ] Modify `idea-guy/get_pricepoints/__init__.py` to use UniversalAgentEngine
+- [ ] Modify `idea-guy/get_pricepoints/__init__.py` to use AnalysisService
 - [ ] Update `idea-guy/execute_analysis/__init__.py` to support any agent type
 - [ ] Enhance `idea-guy/process_idea/__init__.py` to extract agent_id from job metadata
 
