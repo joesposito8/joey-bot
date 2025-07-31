@@ -15,36 +15,29 @@ class BudgetConfigManager:
     def _get_full_config(self) -> FullAgentConfig:
         """Get FullAgentConfig instance with universal settings."""
         if self._full_config is None:
-            # Create universal agent definition
-            universal_agent = AgentDefinition(
-                agent_id="universal",
-                name="Universal Agent",
-                sheet_url="",  # Universal config only
-                starter_prompt=""  # Universal config only
-            )
-            # Load universal platform configuration
-            self._full_config = FullAgentConfig(universal_agent, None)
+            # Load universal platform configuration from prompt_manager
+            config = prompt_manager._load_common_config()
+            platform_config = config.get('platform', {})
+            budget_tiers = platform_config.get('budget_tiers', [])
+            self._full_config = budget_tiers
         return self._full_config
     
     def get_tier_config(self, tier_name: str) -> BudgetTierConfig:
         """Get configuration for a specific budget tier."""
-        config = self._get_full_config()
-        tiers = config.get_budget_tiers()
+        tiers = self._get_full_config()
         
-        for tier in tiers:
-            if tier.name == tier_name:
-                return tier
+        for tier_data in tiers:
+            if tier_data['name'] == tier_name:
+                return BudgetTierConfig.from_dict(tier_data)
         
-        valid_tiers = [tier.name for tier in tiers]
+        valid_tiers = [tier['name'] for tier in tiers]
         raise ValueError(f"Invalid budget tier '{tier_name}'. Valid tiers: {valid_tiers}")
     
     def get_all_tiers(self) -> List[BudgetTierConfig]:
         """Get all available budget tier configurations."""
-        config = self._get_full_config()
-        return config.get_budget_tiers()
+        return self._get_full_config()
     
     def get_tier_names(self) -> List[str]:
         """Get list of available tier names."""
-        config = self._get_full_config()
-        tiers = config.get_budget_tiers()
-        return [tier.name for tier in tiers]
+        tiers = self._get_full_config()
+        return [tier['name'] for tier in tiers]

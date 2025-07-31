@@ -53,6 +53,17 @@ class BudgetTierConfig:
     description: str    # Human-readable description
     deliverables: List[str] = None  # Optional list of deliverables
     
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'BudgetTierConfig':
+        """Create BudgetTierConfig from dictionary data."""
+        return cls(
+            name=data['name'],
+            price=float(data['price']),
+            calls=int(data['calls']),
+            description=data['description'],
+            deliverables=data.get('deliverables', [])
+        )
+    
     def __post_init__(self):
         """Set default empty deliverables if None."""
         if self.deliverables is None:

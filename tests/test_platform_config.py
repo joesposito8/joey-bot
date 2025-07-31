@@ -30,11 +30,15 @@ class TestPlatformConfiguration:
             platform_config = yaml.safe_load(f)
         
         # Verify required top-level sections
+        # Check top-level structure
         assert "platform" in platform_config
-        assert "universal_settings" in platform_config["platform"]
-        assert "budget_tiers" in platform_config["platform"]
-        assert "models" in platform_config["platform"]
-        assert "prompts" in platform_config["platform"]
+        platform_section = platform_config["platform"]
+        
+        # Check required sections
+        assert "universal_settings" in platform_section
+        assert "budget_tiers" in platform_section
+        assert "models" in platform_section
+        assert "prompts" in platform_section
     
     def test_universal_budget_tiers(self):
         """Test universal budget tier configuration."""
@@ -42,7 +46,7 @@ class TestPlatformConfiguration:
         
         # Load universal config through existing system
         universal_config = prompt_manager._load_common_config()
-        budget_tiers = universal_config['budget_tiers']
+        budget_tiers = universal_config['platform']['budget_tiers']
         
         # Verify correct structure
         assert len(budget_tiers) == 3
@@ -69,8 +73,9 @@ class TestPlatformConfiguration:
         universal_config = prompt_manager._load_common_config()
         
         # Verify model configuration exists
-        if 'models' in universal_config:
-            models = universal_config['models']
+        platform_config = universal_config.get('platform', {})
+        if 'models' in platform_config:
+            models = platform_config['models']
             # Check that all models are set to gpt-4o-mini
             for model_type, model_name in models.items():
                 assert model_name == "gpt-4o-mini"
@@ -90,8 +95,9 @@ class TestPlatformConfiguration:
         universal_config = prompt_manager._load_common_config()
         
         # Verify prompt templates exist
-        if 'prompts' in universal_config:
-            prompts = universal_config['prompts']
+        platform_config = universal_config.get('platform', {})
+        if 'prompts' in platform_config:
+            prompts = platform_config['prompts']
             
             # Should have universal workflow prompts
             expected_prompts = [
@@ -198,11 +204,12 @@ class TestPlatformValidation:
             
             # Basic structure validation
             assert isinstance(universal_config, dict)
-            assert 'budget_tiers' in universal_config
-            assert isinstance(universal_config['budget_tiers'], list)
+            platform_config = universal_config.get('platform', {})
+            assert 'budget_tiers' in platform_config
+            assert isinstance(platform_config['budget_tiers'], list)
             
             # Each budget tier should be valid
-            for tier in universal_config['budget_tiers']:
+            for tier in platform_config['budget_tiers']:
                 assert 'name' in tier
                 assert 'price' in tier
                 assert 'calls' in tier

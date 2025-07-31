@@ -1,9 +1,8 @@
 # Universal AI Agent Platform - Platform Configuration
-# Core configuration used across all agents
-
 platform:
   version: "2.1.0"
   description: "Universal AI Agent Platform shared configuration"
+
   universal_settings:
     enable_multi_agent: true
     enable_caching: true

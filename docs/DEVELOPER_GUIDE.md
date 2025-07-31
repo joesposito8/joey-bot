@@ -66,7 +66,7 @@ Get user-facing instructions for data collection.
 Get available analysis tiers and pricing.
 
 **Endpoint:** `POST /api/get_pricepoints`  
-**Current:** Universal budget tiers loaded from `common/prompts.yaml`
+**Current:** Universal budget tiers loaded from `common/platform.yaml`
 
 **Request Body:**
 ```json
@@ -239,7 +239,7 @@ The new universal test suite validates the three-layer system:
 ```bash
 python -m pytest tests/test_platform_config.py -v
 ```
-Tests universal platform settings from `common/prompts.yaml`:
+Tests universal platform settings from `common/platform.yaml`:
 - Universal budget tiers ($1/$3/$5)
 - Model configuration (gpt-4o-mini)
 - Universal prompt templates

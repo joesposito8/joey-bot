@@ -17,15 +17,12 @@ class PromptManager:
     def _load_common_config(self) -> Dict[str, Any]:
         """Load common prompts configuration."""
         if self._common_config is None:
-            # Find the platform config file
+            # Load platform configuration
             current_path = Path(__file__).parent
             config_path = current_path / 'platform.yaml'
             
             if not config_path.exists():
-                # Fall back to prompts.yaml for backward compatibility
-                config_path = current_path / 'prompts.yaml'
-                if not config_path.exists():
-                    raise ValueError(f"Configuration not found at: {config_path}")
+                raise ValueError(f"Platform configuration not found at: {config_path}")
             
             with open(config_path, 'r', encoding='utf-8') as f:
                 self._common_config = yaml.safe_load(f)
@@ -45,7 +42,8 @@ class PromptManager:
             Model name string
         """
         config = self._load_common_config()
-        models = config.get('models', {})
+        platform_config = config.get('platform', {})
+        models = platform_config.get('models', {})
         
         if model_type not in models:
             raise ValueError(f"Unknown model type: {model_type}. Available: {list(models.keys())}")
@@ -62,7 +60,8 @@ class PromptManager:
             Prompt template string
         """
         config = self._load_common_config()
-        prompts = config.get('prompts', {})
+        platform_config = config.get('platform', {})
+        prompts = platform_config.get('prompts', {})
         
         if prompt_name not in prompts:
             raise ValueError(f"Unknown prompt: {prompt_name}. Available: {list(prompts.keys())}")
