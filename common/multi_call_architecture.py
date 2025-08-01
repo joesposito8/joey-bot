@@ -415,7 +415,7 @@ def create_multi_call_analysis(
     original_prompt = agent_config.generate_analysis_prompt(user_input)
     
     # Initialize architecture system
-    architecture = MultiCallArchitecture(openai_client)
+    architecture = MultiCallArchitecture(openai_client, agent_config)
     
     # Plan the architecture
     output_fields = [field.name for field in agent_config.schema.output_fields]
