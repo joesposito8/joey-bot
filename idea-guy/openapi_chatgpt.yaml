@@ -59,21 +59,18 @@ paths:
                     description: System instructions for the bot
 
   /api/get_pricepoints:
-    post:
+    get:
       operationId: getPricepoints
       summary: Get budget options for analysis
       description: Returns available budget tiers with pricing and features
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - user_input
-              properties:
-                user_input:
-                  $ref: '#/components/schemas/UserInput'
+      parameters:
+        - name: agent
+          in: query
+          description: Agent type (optional, defaults to business_evaluation)
+          required: false
+          schema:
+            type: string
+            example: "business_evaluation"
       responses:
         "200":
           description: Budget options retrieved successfully

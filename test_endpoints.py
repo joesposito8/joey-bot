@@ -72,8 +72,8 @@ def main():
     results["get_instructions"] = success
     
     # Test 2: Get Price Points  
-    print("\n2. Testing POST /api/get_pricepoints")
-    success, result = test_endpoint("POST", "get_pricepoints", data={})
+    print("\n2. Testing GET /api/get_pricepoints")
+    success, result = test_endpoint("GET", "get_pricepoints")
     results["get_pricepoints"] = success
     
     # Test 3: Read Sheet

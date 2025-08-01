@@ -189,7 +189,7 @@ COLLECTION PROCESS:
 4. If they want to change it, ask for the information again
 5. Continue until you have collected ALL fields listed above
 
-IMPORTANT: Once all fields are collected, when you call the get_pricepoints endpoint, you MUST use these exact field names as keys in the user_input object:
+IMPORTANT: Once all fields are collected, call the get_pricepoints endpoint to get pricing options, then when you call execute_analysis, you MUST use these exact field names as keys in the user_input object:
 {', '.join([f'"{name}"' for name in field_names])}
 
 Begin by asking for the first field."""
