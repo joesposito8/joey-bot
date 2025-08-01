@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch
 
 # Set testing mode
 os.environ["TESTING_MODE"] = "true"
-os.environ["IDEA_GUY_SHEET_ID"] = "test_sheet_id_for_testing"
+os.environ["IDEA_GUY_SHEET_ID"] = "1bGxOTEPxx3vF3UwPAK7SBUAt1dNqVWAvl3W07Zdj4rs"
 
 
 class TestPlatformConfiguration:
@@ -270,7 +270,7 @@ class TestPlatformEnvironment:
     def test_google_sheets_testing_configuration(self):
         """Test Google Sheets configuration for testing."""
         sheet_id = os.environ.get("IDEA_GUY_SHEET_ID")
-        assert sheet_id == "test_sheet_id_for_testing"
+        assert sheet_id == "1bGxOTEPxx3vF3UwPAK7SBUAt1dNqVWAvl3W07Zdj4rs"
         
         # Verify sheets client handles testing mode
         from common.utils import get_google_sheets_client

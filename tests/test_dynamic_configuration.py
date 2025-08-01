@@ -18,7 +18,7 @@ from common.errors import ValidationError, ConfigurationError
 
 # Set testing mode
 os.environ["TESTING_MODE"] = "true"
-os.environ["IDEA_GUY_SHEET_ID"] = "test_sheet_id_for_testing"
+os.environ["IDEA_GUY_SHEET_ID"] = "1bGxOTEPxx3vF3UwPAK7SBUAt1dNqVWAvl3W07Zdj4rs"
 
 
 class TestConfigurationModels:
