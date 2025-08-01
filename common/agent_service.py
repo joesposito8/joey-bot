@@ -112,16 +112,12 @@ class AnalysisService:
                 f"Missing or empty required input fields: {missing_fields}"
             )
     
-    def get_budget_options(self, user_input: Dict[str, Any]) -> Dict[str, Any]:
+    def get_budget_options(self) -> Dict[str, Any]:
         """Get available budget tiers for analysis.
         
-        Args:
-            user_input: User's input data
-            
         Returns:
             Budget options with pricing details
         """
-        self.validate_user_input(user_input)
         
         # Generate pricing options from universal budget configuration
         pricepoints = []

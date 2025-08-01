@@ -13,7 +13,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     """Get budget pricing options for business idea analysis.
     
     Args:
-        req: HTTP request with user_input in JSON body
+        req: HTTP GET request with optional agent query parameter
         
     Returns:
         JSON response with available budget tiers and pricing
@@ -21,15 +21,11 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Get pricepoints HTTP trigger function processed a request.')
 
     try:
-        # Parse and validate request
-        req_body = validate_json_request(req)
-        user_input = req_body.get("user_input", {})
+        # Get agent parameter from query string (optional, defaults to current agent)
+        agent = req.params.get('agent', 'business_evaluation')
         
-        # Get spreadsheet ID from request or environment
-        spreadsheet_id = req_body.get(
-            "spreadsheet_id", 
-            os.getenv("IDEA_GUY_SHEET_ID", "")
-        )
+        # Get spreadsheet ID from environment
+        spreadsheet_id = os.getenv("IDEA_GUY_SHEET_ID", "")
         
         if not spreadsheet_id:
             return build_error_response(
@@ -39,7 +35,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         
         # Initialize analysis service with dynamic configuration and get budget options
         analysis_service = AnalysisService(spreadsheet_id)
-        response_data = analysis_service.get_budget_options(user_input)
+        response_data = analysis_service.get_budget_options()
         
         # Add testing mode indicator to response
         if is_testing_mode():
@@ -54,7 +50,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             message=str(e),
             status_code=400,
             error_type="validation_error",
-            context={"endpoint": "get_pricepoints", "request_keys": list(req_body.keys()) if 'req_body' in locals() else []},
+            context={"endpoint": "get_pricepoints", "agent": agent if 'agent' in locals() else 'unknown'},
             exception=e
         )
     except ValidationError as e:
