@@ -14,7 +14,6 @@ platform:
     architecture_planning: "gpt-4o-mini"    # Model for planning multi-call architecture
     analysis: "gpt-4o-mini"                 # Model for individual analysis calls
     synthesis: "gpt-4o-mini"                # Model for final synthesis
-    user_interaction: "gpt-4o-mini"         # Model for user input processing/validation
 
   # Universal budget tiers - same pricing and capabilities for ALL agents
   budget_tiers:

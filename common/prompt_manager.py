@@ -37,7 +37,7 @@ class PromptManager:
         """Get model name for a specific function.
         
         Args:
-            model_type: Type of model ('architecture_planning', 'user_interaction')
+            model_type: Type of model ('architecture_planning', 'analysis', 'synthesis')
             
         Returns:
             Model name string
