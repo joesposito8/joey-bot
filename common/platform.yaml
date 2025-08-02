@@ -141,3 +141,39 @@ platform:
       Focus on gathering factual, relevant information about: {research_topic}
       Include specific data points, statistics, or insights where possible.
       Return ONLY the JSON object, no additional text.
+
+    # User instructions template - for Custom GPT guidance on collecting user input
+    user_instructions: |
+      You are helping a user with **{{ agent_name }}** analysis.
+
+      ## What You Need to Collect
+
+      I need you to gather the following information from the user. Take your time with each field and make sure you understand what they're looking for:
+
+      {% for field in input_fields %}
+      ### {{ loop.index }}. {{ field.name }}
+      **What this means**: {{ field.description }}
+      
+      {% endfor %}
+
+      ## How to Collect the Information
+
+      1. **Go through each field one at a time** - Don't overwhelm the user by asking for everything at once
+      2. **Explain what you need** - Use the field description to help the user understand what information you're looking for
+      3. **Confirm their input** - When they provide information, repeat it back and ask if that's correct
+      4. **Be patient** - If they want to change something, help them refine it
+      5. **Continue until complete** - Make sure you have ALL the required information before proceeding
+
+      ## Next Steps
+
+      Once you have collected ALL the information above:
+      1. Call the `get_pricepoints` endpoint to show pricing options
+      2. After they select a tier, call `execute_analysis` with these exact field names:
+         {{ field_names_json }}
+
+      ## Important Notes
+      - Use the exact field names shown above when calling the API
+      - Make sure every required field has been collected before proceeding
+      - Be helpful and encouraging throughout the process
+
+      Ready to start? Ask the user for the first piece of information!

@@ -169,30 +169,12 @@ class FullAgentConfig:
 
     def generate_instructions(self) -> str:
         """Generate instructions for the ChatGPT bot on how to collect user input."""
-        # List all required fields with descriptions and exact field names
-        field_descriptions = []
-        field_names = []
-        for field in self.schema.input_fields:
-            field_descriptions.append(f"- **{field.name}**: {field.description}")
-            field_names.append(field.name)
-
-        return f"""You are helping a user with {self.definition.name.lower()} analysis. 
-
-Your task is to collect ALL of the following information from the user, one field at a time:
-
-{chr(10).join(field_descriptions)}
-
-COLLECTION PROCESS:
-1. Ask for each field in order, explaining what information you need based on the field description
-2. When the user provides input, repeat it back and ask for confirmation  
-3. If they confirm, move to the next field
-4. If they want to change it, ask for the information again
-5. Continue until you have collected ALL fields listed above
-
-IMPORTANT: Once all fields are collected, call the get_pricepoints endpoint to get pricing options, then when you call execute_analysis, you MUST use these exact field names as keys in the user_input object:
-{', '.join([f'"{name}"' for name in field_names])}
-
-Begin by asking for the first field."""
+        from common.prompt_manager import prompt_manager
+        
+        return prompt_manager.format_user_instructions_prompt(
+            agent_name=self.definition.name,
+            input_fields=self.schema.input_fields
+        )
 
 
     def get_universal_setting(self, setting_name: str, default: Any = None) -> Any:

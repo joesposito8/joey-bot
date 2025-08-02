@@ -170,6 +170,38 @@ class PromptManager:
             formatted_user_input=formatted_user_input,
             json_format_instructions=json_format_instructions
         )
+    
+    def format_user_instructions_prompt(
+        self,
+        agent_name: str,
+        input_fields: list  # List of FieldConfig objects
+    ) -> str:
+        """Format the user instructions prompt with field descriptions.
+        
+        Args:
+            agent_name: Human-readable name of the agent
+            input_fields: List of FieldConfig objects with .name and .description
+            
+        Returns:
+            Formatted user instructions with field descriptions and better formatting
+        """
+        from jinja2 import Template
+        import json
+        
+        template_str = self.get_prompt_template('user_instructions')
+        
+        # Create field names JSON for API calls
+        field_names = [field.name for field in input_fields]
+        field_names_json = json.dumps({name: "user_provided_value" for name in field_names}, indent=2)
+        
+        # Create Jinja2 template and render
+        jinja_template = Template(template_str)
+        
+        return jinja_template.render(
+            agent_name=agent_name,
+            input_fields=input_fields,
+            field_names_json=field_names_json
+        )
 
 
 # Global instance
