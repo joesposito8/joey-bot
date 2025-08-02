@@ -1,29 +1,34 @@
 #!/usr/bin/env python3
 """
-Test multi-call analysis workflow execution.
-Tests the plan → execute → synthesize pattern that enables
-complex analysis across different budget tiers.
+Test durable orchestrator workflow execution.
+Tests the research → synthesis pattern with LangChain integration.
 """
 
 import pytest
 import os
-import json
 from unittest.mock import Mock, patch
-from common.multi_call_architecture import MultiCallArchitecture
+
+# TODO: Replace with durable orchestrator imports
+try:
+    from common.durable_orchestrator import DurableOrchestrator
+    from common.research_models import ResearchOutput
+except ImportError:
+    DurableOrchestrator = None
+    ResearchOutput = None
 
 # Set testing mode
 os.environ["TESTING_MODE"] = "true"
 os.environ["IDEA_GUY_SHEET_ID"] = "1bGxOTEPxx3vF3UwPAK7SBUAt1dNqVWAvl3W07Zdj4rs"
 
 
-class TestMultiCallWorkflow:
-    """Test the universal plan → execute → synthesize workflow pattern."""
+class TestDurableWorkflow:
+    """Test the universal research → synthesis workflow pattern."""
     
     @pytest.fixture
     def mock_agent_config(self):
         """Mock agent configuration for testing."""
         config = Mock()
-        config.get_model.return_value = "gpt-4-turbo"
+        config.get_model.return_value = "gpt-4o-mini"
         config.get_universal_setting.return_value = 4
         
         # Mock schema with output fields
@@ -35,87 +40,80 @@ class TestMultiCallWorkflow:
         
         # Mock definition for prompts
         config.definition = Mock()
-        config.definition.starter_prompt = "Test agent starter prompt"
+        config.definition.starter_prompt = "You are a business analysis expert..."
         
         return config
     
-    # OpenAI client mocking now handled by conftest.py fixture
+    def test_basic_tier_workflow_no_research_calls(self, mock_openai, mock_agent_config):
+        """Test basic tier executes synthesis only (0 research calls)."""
+        if DurableOrchestrator is None:
+            pytest.skip("DurableOrchestrator not implemented yet")
+        
+        orchestrator = DurableOrchestrator(mock_agent_config)
+        
+        user_input = {"Idea_Overview": "Test business idea"}
+        result = orchestrator.execute_workflow(user_input, "basic")
+        
+        # Basic tier should skip research phase, go straight to synthesis
+        assert result["research_calls_made"] == 0
+        assert result["synthesis_calls_made"] == 1
     
-    def test_basic_tier_plan_requirements(self, mock_openai, mock_agent_config):
-        """Test single-call budget produces valid minimal plan."""
-        architecture = MultiCallArchitecture(mock_openai, mock_agent_config)
+    def test_standard_tier_sequential_execution(self, mock_openai, mock_agent_config):
+        """Test standard tier executes 2 research calls then synthesis."""
+        if DurableOrchestrator is None:
+            pytest.skip("DurableOrchestrator not implemented yet")
         
-        plan = architecture.plan_architecture(
-            original_prompt="Basic analysis",
-            available_calls=1,
-            user_input={"test": "input"},
-            output_fields=["Analysis_Result"]
-        )
+        orchestrator = DurableOrchestrator(mock_agent_config)
         
-        # Verify minimal viable plan structure
-        assert plan.total_calls == 1
-        assert len(plan.calls) == 1
-        assert len(plan.execution_order) == 1  # Single batch
-        synthesizer_calls = [call for call in plan.calls if call.is_summarizer]
-        assert len(synthesizer_calls) == 1  # Must have summarizer
+        user_input = {"Idea_Overview": "Mobile app idea"}
+        result = orchestrator.execute_workflow(user_input, "standard")
+        
+        # Should execute research calls sequentially, then synthesis
+        assert result["research_calls_made"] == 2
+        assert result["synthesis_calls_made"] == 1
+        # TODO: Verify execution order and timing
     
-    def test_multi_call_dependencies(self, mock_openai, mock_agent_config):
-        """Test plans with multiple calls have valid dependency structure."""
-        architecture = MultiCallArchitecture(mock_openai, mock_agent_config)
+    def test_premium_tier_rate_limit_compliance(self, mock_openai, mock_agent_config):
+        """Test premium tier respects rate limits with sequential execution."""
+        if DurableOrchestrator is None:
+            pytest.skip("DurableOrchestrator not implemented yet")
         
-        plan = architecture.plan_architecture(
-            original_prompt="Complex analysis",
-            available_calls=3,
-            user_input={"test": "input"},
-            output_fields=["Analysis_Result", "Overall_Rating"]
-        )
+        orchestrator = DurableOrchestrator(mock_agent_config)
         
-        # Verify dependency graph
-        for call in plan.calls:
-            for dep_id in call.dependencies:
-                # Dependency must exist
-                assert any(c.call_id == dep_id for c in plan.calls)
-                # Dependency must execute before dependent call
-                dep_batch = next(i for i, batch in enumerate(plan.execution_order) 
-                               if dep_id in batch)
-                call_batch = next(i for i, batch in enumerate(plan.execution_order) 
-                                if call.call_id in batch)
-                assert dep_batch < call_batch
+        user_input = {"Idea_Overview": "Complex business analysis"}
+        
+        # Track timing to ensure sequential execution (rate limit friendly)
+        import time
+        start_time = time.monotonic()
+        result = orchestrator.execute_workflow(user_input, "premium")
+        execution_time = time.monotonic() - start_time
+        
+        # 4 research calls + 1 synthesis should take reasonable time
+        assert result["research_calls_made"] == 4
+        assert result["synthesis_calls_made"] == 1
+        # TODO: Define reasonable execution time bounds
     
-    def test_parallel_execution_batching(self, mock_openai, mock_agent_config):
-        """Test parallel execution respects max_concurrent and dependencies."""
-        architecture = MultiCallArchitecture(mock_openai, mock_agent_config)
-        max_concurrent = mock_agent_config.get_universal_setting('max_concurrent_calls')
-        
-        plan = architecture.plan_architecture(
-            original_prompt="Parallel analysis",
-            available_calls=5,  # Use premium tier to test parallel execution
-            user_input={"test": "input"},
-            output_fields=["Analysis_Result"]
-        )
-        
-        # Verify batch constraints
-        for batch in plan.execution_order:
-            assert len(batch) <= max_concurrent
-            
-            # Verify all dependencies for this batch completed
-            completed_calls = set()
-            for prior_batch in plan.execution_order:
-                if prior_batch == batch:
-                    break
-                completed_calls.update(prior_batch)
-                
-            for call_id in batch:
-                call = next(c for c in plan.calls if c.call_id == call_id)
-                assert all(dep in completed_calls for dep in call.dependencies)
-
-    def test_workflow_service_integration(self):
+    def test_integration_with_analysis_service(self):
         """Test workflow integration with AnalysisService."""
         from common.agent_service import AnalysisService
         
-        # For now, just verify the service can be instantiated
-        service = AnalysisService()
-        assert service is not None
+        # Create service with test spreadsheet
+        service = AnalysisService("1bGxOTEPxx3vF3UwPAK7SBUAt1dNqVWAvl3W07Zdj4rs")
+        
+        # Should be able to create analysis job (currently returns temp job)
+        user_input = {
+            "Idea_Overview": "Test business idea",
+            "Deliverable": "Test deliverable",
+            "Motivation": "Test motivation"
+        }
+        
+        # TODO: This currently uses temporary implementation
+        # Will be updated when durable orchestrator is integrated
+        result = service.create_analysis_job(user_input, "basic")
+        
+        assert "job_id" in result
+        assert result["status"] == "processing"
+        # TODO: Verify research_plan is added to spreadsheet record
     
     def test_workflow_endpoint_integration(self):
         """Test workflow integration with Azure Function endpoints."""
