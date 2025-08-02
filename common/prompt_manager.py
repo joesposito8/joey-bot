@@ -141,19 +141,25 @@ class PromptManager:
     
     def format_synthesis_call_prompt(
         self,
-        previous_findings: str,
-        output_fields: list  # List of FieldConfig objects from agent schema
+        research_results: list,  # List of ResearchOutput objects
+        user_input: dict,       # Original user input
+        agent_personality: str, # Agent starter prompt
+        output_fields: list     # List of FieldConfig objects from agent schema
     ) -> str:
-        """Format universal synthesis call prompt with dynamic schema.
+        """Format universal synthesis call prompt with ResearchOutput list and Jinja2.
         
         Args:
-            previous_findings: Results from previous analysis calls
+            research_results: List of ResearchOutput objects from research phase
+            user_input: Original user input dictionary
+            agent_personality: Agent's starter prompt/personality
             output_fields: List of FieldConfig objects with .name, .description, .type
             
         Returns:
-            Formatted synthesis call prompt with JSON schema and field definitions
+            Formatted synthesis call prompt with Jinja2 template rendered
         """
-        template = self.get_prompt_template('synthesis_call')
+        from jinja2 import Template
+        
+        template_str = self.get_prompt_template('synthesis_call')
         
         # Generate JSON schema structure
         json_fields = []
@@ -166,8 +172,13 @@ class PromptManager:
         json_schema = "{\n" + ",\n".join(json_fields) + "\n}"
         field_definitions_str = "\n".join(field_definitions)
         
-        return template.format(
-            previous_findings=previous_findings,
+        # Create Jinja2 template and render with ResearchOutput objects
+        jinja_template = Template(template_str)
+        
+        return jinja_template.render(
+            agent_personality=agent_personality,
+            research_results=research_results,
+            user_input=user_input,
             json_schema=json_schema,
             field_definitions=field_definitions_str
         )

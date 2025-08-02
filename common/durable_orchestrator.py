@@ -7,7 +7,6 @@ import logging
 import uuid
 import json
 from typing import Dict, List, Any, Optional
-from jinja2 import Template
 
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage
@@ -109,13 +108,14 @@ class DurableOrchestrator:
             ]
             return base_topics[:num_topics]
         
-        # Create UNIVERSAL planning prompt that works for ANY agent type
+        # Create UNIVERSAL research planning prompt that works for ANY agent type
         user_input_summary = "\n".join([f"**{key}**: {value}" for key, value in user_input.items()])
         
         # Get agent personality to understand what type of analysis this is
         agent_personality = self.agent_config.definition.starter_prompt
         
-        planning_prompt = f"""You are a research planning expert working with an AI analysis agent. Based on the agent's expertise and the user's request below, generate {num_topics} specific, actionable research topics that will provide comprehensive analysis.
+        # Simple universal planning prompt (not using architecture_planning which is for full workflow)
+        planning_prompt = f"""You are a research planning expert working with an AI analysis agent.
 
 ## Agent Expertise:
 {agent_personality}
@@ -123,24 +123,14 @@ class DurableOrchestrator:
 ## User Request:
 {user_input_summary}
 
-## Instructions:
-Analyze the agent's expertise area (business, HR, legal, medical, technical, etc.) and the user's specific request. Generate exactly {num_topics} research topics that are:
-1. Relevant to the agent's domain of expertise
-2. Specific and actionable for research
-3. Comprehensive enough to cover different aspects of the user's request
-4. Focused on gathering concrete insights and data
-
-The research topics should cover different angles appropriate to the agent's field. For example:
-- Business agent: market analysis, competition, feasibility, business model
-- HR agent: talent analysis, compensation, culture, compliance
-- Legal agent: regulatory requirements, precedents, compliance, risks
-- Medical agent: clinical evidence, safety, efficacy, guidelines
+## Task:
+Based on the agent's expertise and the user's request, generate exactly {num_topics} specific, actionable research topics that will provide comprehensive analysis. The topics should be relevant to the agent's domain of expertise.
 
 ## Output Format:
-Return a JSON array of exactly {num_topics} research topics as strings:
+Return ONLY a JSON array of exactly {num_topics} research topics as strings:
 ["Research topic 1", "Research topic 2", ...]
 
-Each topic should be specific to the agent's domain and actionable for research."""
+Each topic should be specific, actionable, and focused on gathering concrete insights relevant to the agent's field of expertise."""
 
         try:
             # Use OpenAI to generate research plan
@@ -267,46 +257,11 @@ Include specific data points, statistics, or insights where possible.
                 "research_sources": len(research_results)
             }
         
-        # Create Jinja2 template for synthesis combining ALL research
-        synthesis_template = Template("""
-You are {{ agent_personality }}
-
-Based on the user's request and the following comprehensive research findings, provide a detailed analysis:
-
-## User Request:
-{% for key, value in user_input.items() %}
-**{{ key }}**: {{ value }}
-{% endfor %}
-
-## Research Findings Summary:
-{% for research in research_results %}
-
-### Research Topic: {{ research.research_topic }}
-**Summary**: {{ research.summary }}
-**Key Findings**:
-{% for finding in research.key_findings %}
-- {{ finding }}
-{% endfor %}
-**Confidence**: {{ research.confidence_level }}
----
-{% endfor %}
-
-## Analysis Instructions:
-Please synthesize ALL the research findings above into a comprehensive analysis that addresses the user's request. 
-Your response must be in JSON format matching the required output schema:
-
-{% for field in output_fields %}
-- **{{ field.name }}**: {{ field.description }}
-{% endfor %}
-
-Ensure your analysis references specific findings from the research above and provides actionable insights.
-""")
-        
-        # Render template with ALL research results
-        synthesis_prompt = synthesis_template.render(
-            agent_personality=self.agent_config.definition.starter_prompt,
-            user_input=user_input,
+        # Use existing universal synthesis_call template from platform.yaml via prompt_manager
+        synthesis_prompt = prompt_manager.format_synthesis_call_prompt(
             research_results=research_results,
+            user_input=user_input,
+            agent_personality=self.agent_config.definition.starter_prompt,
             output_fields=self.agent_config.schema.output_fields
         )
         

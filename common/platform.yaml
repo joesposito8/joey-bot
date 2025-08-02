@@ -143,12 +143,32 @@ platform:
       
       {specific_instructions}
 
-    # Universal synthesis call template - works with ANY agent type
+    # Universal synthesis call template - works with ANY agent type and ResearchOutput list
     synthesis_call: |
-      You are synthesizing findings from multiple specialized analysis calls into a comprehensive final analysis.
+      {agent_personality}
       
-      PREVIOUS ANALYSIS FINDINGS:
-      {previous_findings}
+      You are synthesizing findings from multiple specialized research calls into a comprehensive final analysis.
+      
+      ## User's Original Request:
+      {% for key, value in user_input.items() %}
+      **{{ key }}**: {{ value }}
+      {% endfor %}
+      
+      ## Research Findings Summary:
+      {% for research in research_results %}
+      
+      ### Research Topic: {{ research.research_topic }}
+      **Summary**: {{ research.summary }}
+      **Key Findings**:
+      {% for finding in research.key_findings %}
+      - {{ finding }}
+      {% endfor %}
+      **Confidence Level**: {{ research.confidence_level }}
+      ---
+      {% endfor %}
+      
+      ## Analysis Requirements:
+      Please synthesize ALL the research findings above into a comprehensive analysis that addresses the user's request.
       
       REQUIRED JSON OUTPUT FORMAT:
       {json_schema}
@@ -158,8 +178,9 @@ platform:
       
       SYNTHESIS REQUIREMENTS:
       - Combine all findings into the exact JSON format specified above
-      - Each field must be thoroughly addressed based on the specialized analysis findings
-      - Ensure consistency across all analysis dimensions
+      - Each field must be thoroughly addressed based on the specialized research findings
+      - Reference specific findings from the research above in your analysis
+      - Ensure consistency across all research dimensions
       - Provide specific, actionable insights for each required field
       - Return ONLY the JSON object, no additional text
       
