@@ -145,7 +145,7 @@ platform:
 
     # Universal synthesis call template - works with ANY agent type and ResearchOutput list
     synthesis_call: |
-      {agent_personality}
+      {{ agent_personality }}
       
       You are synthesizing findings from multiple specialized research calls into a comprehensive final analysis.
       
@@ -171,10 +171,10 @@ platform:
       Please synthesize ALL the research findings above into a comprehensive analysis that addresses the user's request.
       
       REQUIRED JSON OUTPUT FORMAT:
-      {json_schema}
+      {{ json_schema }}
       
       FIELD DEFINITIONS:
-      {field_definitions}
+      {{ field_definitions }}
       
       SYNTHESIS REQUIREMENTS:
       - Combine all findings into the exact JSON format specified above
