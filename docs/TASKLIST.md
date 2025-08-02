@@ -1,8 +1,8 @@
 # Joey-Bot Task List
 
-**Last Updated**: 2025-01-31  
-**Current Phase**: Test Infrastructure Stabilized, Core Implementation Ready  
-**Status**: Major test infrastructure fixes completed, 95% test pass rate achieved, real Google Sheets API integration working
+**Last Updated**: 2025-08-02  
+**Current Phase**: MAJOR ARCHITECTURAL REDESIGN - Sequential Research->Synthesis System  
+**Status**: **CRITICAL DISCOVERY** - Current MultiCallArchitecture fundamentally broken (background=True prevents dependencies). Complete redesign to Research->Synthesis with Durable Functions + LangChain + structured JSON handoff.
 
 ## Completed Work
 
@@ -52,63 +52,84 @@
 - [x] Validate all critical components: Platform config, Workflow engine, Dynamic config, Business evaluator
 <!-- Updated from commit 9f2d5b7 -->
 
+### Recent Critical Fixes
+- [x] Fix template formatting error in platform.yaml (escape curly braces)
+- [x] Fix agent_config parameter passing to MultiCallArchitecture constructor
+- [x] Update get_pricepoints endpoint to use GET method
+- [x] Clean up get_budget_options method - remove backwards compatibility
+- [x] Remove unused user_interaction model from platform.yaml
+<!-- Updated from commits 328221f, 07758da, 7a4019f, 45fece7, b44594e -->
+
 ## Pending Tasks
 
-### Phase 2: Core Implementation (Current Priority)
+### CRITICAL: Sequential Analysis System Redesign (HIGHEST PRIORITY)
 
-#### Universal Platform Foundation
-- [x] Create `platform.yaml` with universal configuration for ALL agents
-- [ ] Enhance `common/agent_service.py` with improved configuration support
-- [ ] Create `common/config.py` for universal configuration loading system
-- [ ] Implement `common/workflow.py` for universal multi-call workflow execution
+#### Architecture Replacement - REUSE EXISTING COMPONENTS
+- [ ] **DELETE common/multi_call_architecture.py ENTIRELY** - Fundamentally broken (background=True)
+- [ ] **CREATE common/durable_orchestrator.py** - New Durable Functions orchestrator (clean addition)
+- [ ] **MODIFY AnalysisService.create_analysis_job()** - Replace create_multi_call_analysis() call only
+- [ ] **REUSE all existing AnalysisService properties** - Keep lazy-loaded config, validation, clients
+- [ ] **EXTEND _create_spreadsheet_record()** - Add research_plan column to existing row creation
+- [ ] **REUSE existing FullAgentConfig system** - Budget tiers, agent personality, all configuration
 
-#### Azure Functions Universal Updates
-- [ ] Update `idea-guy/get_instructions/__init__.py` to accept agent parameter
-- [ ] Modify `idea-guy/get_pricepoints/__init__.py` to use AnalysisService
-- [ ] Update `idea-guy/execute_analysis/__init__.py` to support any agent type
-- [ ] Enhance `idea-guy/process_idea/__init__.py` to extract agent_id from job metadata
+#### API Endpoint Minimal Changes - PRESERVE EXISTING STRUCTURE
+- [ ] **KEEP execute_analysis HTTP parsing** - All request validation and error handling stays
+- [ ] **MODIFY execute_analysis response** - Add research_plan field to existing response format
+- [ ] **RENAME process_idea → summarize_idea** - Keep same endpoint structure, change logic only
+- [ ] **REMOVE OpenAI job polling** from summarize_idea - Replace with spreadsheet-only reading
+- [ ] **PRESERVE all existing spreadsheet integration** - Keep get_google_sheets_client(), row creation
+- [ ] **REUSE existing HTTP utilities** - Keep build_json_response, validate_json_request, etc.
 
-#### Agent Configuration Migration
-- [ ] Convert `agents/business_evaluation.yaml` to new universal format
-- [ ] Remove hardcoded business logic from agent configuration
-- [ ] Test agent configuration loading with new universal system
-- [ ] Validate dynamic schema loading from Google Sheets
+#### Planning Agent Integration - LEVERAGE EXISTING CONFIG
+- [ ] **CREATE _create_research_plan() method** in AnalysisService - Uses existing tier_config.calls
+- [ ] **REUSE existing budget tier system** - tier_config from agent_config.get_budget_tiers()
+- [ ] **REUSE existing agent personality** - agent_config.definition.starter_prompt for synthesis
+- [ ] **INTEGRATE with existing testing mode** - is_testing_mode() check stays the same
 
-### Core Functionality
+#### LangChain + Structured Data Pipeline - NEW COMPONENTS
+- [ ] **CREATE ResearchOutput model** - Generic: research_topic, summary, key_findings
+- [ ] **CREATE execute_research_call activity function** - LangChain + PydanticOutputParser
+- [ ] **CREATE execute_synthesis_call activity function** - Jinja templates + existing agent personality
+- [ ] **REUSE existing OpenAI client initialization** - get_openai_client() from common/utils.py
+- [ ] **INTEGRATE with existing cost tracking** - Adapt existing log_openai_cost() for sequential calls
+- [ ] **ADD web search capability** - LangChain tools integration
 
-- [ ] Complete AnalysisService implementation with execution planning
-- [ ] Add test coverage for error handling scenarios
-- [ ] Validate real Google Sheets integration with platform.yaml
-<!-- Updated from commit 9fdb319 -->
+#### Testing System Overhaul for New Architecture
+- [ ] **REDESIGN testing framework**: Mock each Research/Synthesis phase individually  
+- [ ] **CREATE Durable Functions testing**: Test orchestrator and activity functions
+- [ ] **ADD LangChain mocking**: Mock structured JSON outputs for research phases
+- [ ] **TEST rate limiting**: Ensure sequential research calls respect OpenAI limits
+- [ ] **VALIDATE end-to-end flow**: Fire-and-forget → spreadsheet completion workflow
+- [ ] **UPDATE test budget tiers**: Test Basic(0+1), Standard(2+1), Premium(4+1) allocations
 
-#### Testing & Validation
-- [x] Fix import errors in new universal test files
-- [x] Update test imports to use AnalysisService
-- [x] Set up proper test environment with mocks and TESTING_MODE
-- [x] Update workflow engine tests to focus on behavioral guarantees
-- [x] Run 5 focused tests to validate universal system functionality
-- [x] Achieve comprehensive test coverage with real Google Sheets API integration
-- [ ] Test end-to-end workflow with business evaluation agent
+### Legacy System Cleanup & Migration
 
-#### File Cleanup
+#### Remove Broken MultiCallArchitecture - SURGICAL REMOVAL
+- [ ] **DELETE common/multi_call_architecture.py ENTIRELY** - 435 lines of broken code
+- [ ] **REMOVE import from common/agent_service.py** - Line 15: from common.multi_call_architecture import create_multi_call_analysis
+- [ ] **REPLACE create_multi_call_analysis() call** - AnalysisService.create_analysis_job() line 201
+- [ ] **KEEP all other AnalysisService methods** - validate_user_input, get_budget_options, etc. stay
+- [ ] **PRESERVE existing error handling** - ValidationError, testing mode, all current behavior
+
+#### File & Configuration Updates
 - [x] Delete `common/budget_config.py` after functionality moved to FullAgentConfig
-- [ ] Remove unused imports and references to deleted files
-- [ ] Update any remaining hardcoded references to business evaluation
+- [ ] **UPDATE agents/business_evaluation.yaml**: Remove any multi-call architecture references
+- [ ] **CLEAN UP platform.yaml**: Remove broken dependency-related configuration
+- [ ] **REMOVE unused imports**: Clean up references to deleted multi-call system
 
-### Integration & Edge Cases
+### Integration & Production Deployment
 
-#### System Validation
-- [x] Test universal system with existing business evaluation agent
-- [x] Verify Google Sheets schema loading works with new configuration system  
-- [x] Validate OpenAI multi-call architecture with AnalysisService
-- [x] Test cost tracking and logging with universal system
-- [ ] Address remaining 2 test isolation issues (tests pass individually but fail in full suite)
+#### Azure Functions Migration to Durable Functions
+- [ ] **DEPLOY Durable Functions**: Replace current Azure Functions with orchestrator pattern
+- [ ] **CONFIGURE function scaling**: Ensure rate-limit compliance with sequential execution  
+- [ ] **UPDATE environment variables**: Add Durable Functions configuration
+- [ ] **TEST production deployment**: Validate complete fire-and-forget workflow
 
-#### Production Readiness
-- [ ] Test Azure Functions deployment with universal endpoints
-- [ ] Verify environment variable handling in universal system
-- [ ] Test error handling and edge cases in universal configuration loading
-- [ ] Validate backwards compatibility during transition period
+#### Custom GPT Integration Updates
+- [ ] **UPDATE Custom GPT instructions**: Reflect new fire-and-forget + summarize workflow
+- [ ] **MODIFY OpenAPI schema**: Update for execute_analysis + summarize_idea endpoints
+- [ ] **TEST Custom GPT workflow**: Fire-and-forget → polling → results display
+- [ ] **DOCUMENT new user experience**: Show execution plan, estimated time, progress updates
 
 ### Phase 3: Validation & Polish (Future)
 
@@ -130,24 +151,49 @@
 - [ ] Create agent creation guide for non-technical users
 - [ ] Update troubleshooting guide for universal system
 
-## Next Steps
+## IMMEDIATE NEXT STEPS (Priority Order) - REUSE-FOCUSED APPROACH
 
-1. **Azure Functions Universal Updates**: Add agent parameter support to all endpoints for true universality
-2. **Agent Configuration Migration**: Convert business_evaluation.yaml to new universal format
-3. **End-to-End Testing**: Validate complete workflow with business evaluation agent using real API
-4. **Second Agent Creation**: Prove universality by creating HR analysis agent
-5. **Test Isolation Fixes**: Address remaining 2 test failures that occur only in full suite runs
+1. **🔥 CRITICAL**: DELETE common/multi_call_architecture.py and remove import from AnalysisService
+2. **🔥 CRITICAL**: CREATE common/durable_orchestrator.py with research→synthesis workflow  
+3. **🔥 CRITICAL**: MODIFY AnalysisService.create_analysis_job() - replace 1 function call only
+4. **🔥 CRITICAL**: EXTEND _create_spreadsheet_record() to add research_plan column
+5. **⚡ HIGH**: CREATE Durable Function activity functions (execute_research_call, execute_synthesis)
+6. **⚡ HIGH**: RENAME process_idea → summarize_idea, remove OpenAI polling logic
+7. **🔧 MEDIUM**: UPDATE testing framework to mock new activity functions instead of MultiCallArchitecture
 
-## Key Dependencies
+## ARCHITECTURE TRANSITION PLAN
 
-- **Agent Parameter Support**: Required for Azure Functions to work with multiple agent types
-- **Google Sheets Schema**: Must maintain compatibility with dynamic schema loading (✅ COMPLETED)
-- **Real API Integration**: All components now use real Google Sheets API (✅ COMPLETED)
-- **Test Infrastructure**: Stable foundation for development (✅ COMPLETED)
+### Phase 1: Surgical Replacement (Week 1) - MINIMAL DISRUPTION
+- **DELETE** common/multi_call_architecture.py (435 lines out)
+- **CREATE** common/durable_orchestrator.py (200 lines in) 
+- **MODIFY** AnalysisService.create_analysis_job() (replace 1 function call)
+- **REUSE** all existing configuration, validation, client initialization (80% preservation)
 
-## Risk Mitigation
+### Phase 2: Endpoint Updates (Week 2) - PRESERVE STRUCTURE
+- **MODIFY** execute_analysis response format (add research_plan field)
+- **RENAME** process_idea → summarize_idea (same HTTP structure)
+- **REMOVE** OpenAI job polling logic (replace with spreadsheet reading)
+- **KEEP** all existing HTTP parsing, validation, error handling
 
-- **Testing Mode**: All development uses TESTING_MODE=true to prevent API charges
-- **Gradual Migration**: Keep existing business evaluation working during transition
-- **Rollback Plan**: Original system preserved until universal system fully validated
-- **Documentation First**: Complete documentation before implementation to ensure clarity
+### Phase 3: Testing & Integration (Week 3) - ADAPT EXISTING TESTS
+- **UPDATE** existing test files to mock Durable Functions instead of MultiCallArchitecture
+- **REUSE** existing test infrastructure (conftest.py, real Google Sheets API)
+- **PRESERVE** 100% test pass rate by adapting rather than rewriting tests
+
+## CRITICAL DEPENDENCIES - LEVERAGING EXISTING SYSTEMS
+
+- **🔥 Azure Durable Functions**: Only new external dependency required
+- **✅ OpenAI Client Integration**: REUSE existing get_openai_client() (WORKING)
+- **✅ Google Sheets Integration**: REUSE existing client and schema system (WORKING)
+- **✅ Configuration System**: REUSE FullAgentConfig, budget tiers, agent personality (WORKING)
+- **✅ HTTP Infrastructure**: REUSE all Azure Functions, validation, error handling (WORKING)
+- **✅ Test Infrastructure**: ADAPT existing 100% pass rate framework (WORKING)
+
+## RISK MITIGATION - PRESERVATION STRATEGY
+
+- **Minimal Disruption Risk**: Only replacing 1 broken component (MultiCallArchitecture) vs entire system
+- **Configuration Continuity**: All YAML, Google Sheets, budget tiers stay identical  
+- **API Compatibility**: execute_analysis request/response format preserved (just add research_plan)
+- **Testing Safety**: Adapt existing test suite rather than rewrite - preserve 100% pass rate
+- **Rollback Plan**: Can restore common/multi_call_architecture.py if needed (git revert)
+- **Component Isolation**: New Durable Functions isolated in separate file, no integration risk

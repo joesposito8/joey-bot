@@ -12,7 +12,6 @@ from common.config import AgentDefinition, FullAgentConfig
 from common.config.models import BudgetTierConfig
 from pathlib import Path
 from common.http_utils import is_testing_mode
-from common.multi_call_architecture import create_multi_call_analysis
 
 
 from .errors import ValidationError
@@ -196,15 +195,16 @@ class AnalysisService:
             logging.warning("Running in testing mode - creating mock job")
             return self._create_mock_job(user_input, budget_tier)
 
-        # Start multi-call analysis architecture first to get the real job ID
-        try:
-            analysis_job_id = create_multi_call_analysis(
-                user_input, tier_config.calls, self.openai_client, self.agent_config
-            )
-            logging.info(f"Started multi-call analysis job: {analysis_job_id}")
-        except Exception as e:
-            logging.error(f"Failed to start multi-call analysis: {str(e)}")
-            raise ValidationError(f"Failed to start analysis: {str(e)}")
+        # TODO: Replace with new Durable Functions orchestrator
+        # Temporary implementation until durable_orchestrator.py is created
+        import uuid
+        analysis_job_id = f"temp_job_{uuid.uuid4()}"
+        logging.info(f"Created temporary job ID (will be replaced with Durable Functions): {analysis_job_id}")
+        
+        # Note: This is a temporary placeholder - the new system will:
+        # 1. Create research plan using _create_research_plan()
+        # 2. Execute research→synthesis workflow via Durable Functions
+        # 3. Store research_plan in spreadsheet record
 
         # Create spreadsheet record with the OpenAI job ID
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")

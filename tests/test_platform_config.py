@@ -143,21 +143,16 @@ class TestPlatformIntegration:
             assert tier.description is not None
             assert len(tier.description) > 0
     
-    def test_multi_call_architecture_uses_platform_model(self):
-        """Test that multi-call architecture uses platform model settings."""
-        from common.multi_call_architecture import MultiCallArchitecture
-        
-        # Mock OpenAI client and agent config
-        mock_client = Mock()
-        mock_agent_config = Mock()
-        mock_agent_config.get_model.return_value = "gpt-4o-mini"
-        mock_agent_config.get_universal_setting.return_value = 4
-        architecture = MultiCallArchitecture(mock_client, mock_agent_config)
-        
-        # Verify architecture uses correct model
-        # This would be tested through the actual API calls in integration
-        assert hasattr(architecture, 'client')
-        assert architecture.client == mock_client
+    # TODO: Re-implement when durable_orchestrator.py is created
+    # def test_multi_call_architecture_uses_platform_model(self):
+    #     """Test that multi-call architecture uses platform model settings."""
+    #     # Will be replaced with Durable Functions orchestrator tests
+    #     architecture = MultiCallArchitecture(mock_client, mock_agent_config)
+    #     
+    #     # Verify architecture uses correct model
+    #     # This would be tested through the actual API calls in integration
+    #     assert hasattr(architecture, 'client')
+    #     assert architecture.client == mock_client
     
     @patch('common.utils.get_openai_client')
     def test_cost_tracker_handles_platform_model(self, mock_get_client):
