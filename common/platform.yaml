@@ -82,39 +82,39 @@ platform:
 
       TASK: Design the optimal call architecture as a JSON plan with this exact structure:
 
-      {
+      {{
           "strategy_explanation": "Brief explanation of your approach",
           "total_calls": {available_calls},
           "max_concurrent": 4,
           "calls": [
-              {
+              {{
                   "call_id": "call_1",
                   "purpose": "What this call will focus on",
                   "prompt": "Specific prompt for this call focusing on [purpose]",
                   "dependencies": [],
                   "is_summarizer": false
-              },
-              {
+              }},
+              {{
                   "call_id": "call_2", 
                   "purpose": "Another focused analysis area",
                   "prompt": "Specific prompt for this call",
                   "dependencies": ["call_1"],
                   "is_summarizer": false
-              },
-              {
+              }},
+              {{
                   "call_id": "final_summary",
                   "purpose": "Synthesize all findings into final analysis", 
                   "prompt": "Synthesize the findings from previous calls into the complete analysis format required by the original prompt",
                   "dependencies": ["call_1", "call_2"],
                   "is_summarizer": true
-              }
+              }}
           ],
           "execution_order": [
               ["call_1"],
               ["call_2"], 
               ["final_summary"]
           ]
-      }
+      }}
 
       OPTIMIZATION STRATEGIES for {available_calls} calls:
       - 1 call: Single comprehensive analysis covering all required dimensions (MUST set "is_summarizer": true)
