@@ -208,11 +208,12 @@ class AnalysisService:
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         try:
-            # Include research plan in spreadsheet record
+            # Include research plan and final results in spreadsheet record
             research_plan = workflow_result.get("research_plan", {})
-            self._create_spreadsheet_record(analysis_job_id, timestamp, user_input, research_plan)
+            final_result = workflow_result.get("final_result", {})
+            self._create_spreadsheet_record(analysis_job_id, timestamp, user_input, research_plan, final_result)
             logging.info(
-                f"Created spreadsheet record with job ID: {analysis_job_id}"
+                f"Created complete spreadsheet record with job ID: {analysis_job_id}"
             )
         except Exception as e:
             logging.error(f"Failed to create spreadsheet record: {str(e)}")
@@ -227,20 +228,21 @@ class AnalysisService:
             "synthesis_calls_made": workflow_result.get("synthesis_calls_made", 0),
             "research_plan": research_plan,
             "message": f"Analysis completed with {budget_tier} tier. Results available via job_id",
-            "next_endpoint": f"/api/process_idea?id={analysis_job_id}",
+            "next_endpoint": f"/api/summarize_idea?id={analysis_job_id}",
             "timestamp": datetime.datetime.now().isoformat(),
         }
 
     def _create_spreadsheet_record(
-        self, job_id: str, timestamp: str, user_input: Dict[str, Any], research_plan: Dict[str, Any] = None
+        self, job_id: str, timestamp: str, user_input: Dict[str, Any], research_plan: Dict[str, Any] = None, final_result: Dict[str, Any] = None
     ) -> None:
-        """Create initial spreadsheet record for job tracking.
+        """Create complete spreadsheet record with input data, research plan, and final results.
 
         Args:
             job_id: Unique job identifier
             timestamp: Creation timestamp
             user_input: User's input data
             research_plan: Optional research plan from DurableOrchestrator
+            final_result: Optional final analysis results from DurableOrchestrator
         """
         try:
             worksheet = self.spreadsheet.get_worksheet(0)
@@ -260,9 +262,13 @@ class AnalysisService:
             for field in self.agent_config.schema.input_fields:
                 row_data.append(user_input.get(field.name, ""))
 
-            # Add empty output columns (will be filled by process_idea)
-            for _ in range(len(self.agent_config.schema.output_fields)):
-                row_data.append("")
+            # Add output column values from final results (if available)
+            for field in self.agent_config.schema.output_fields:
+                if final_result:
+                    value = final_result.get(field.name, "")
+                    row_data.append(str(value))
+                else:
+                    row_data.append("")  # Empty if no final result yet
 
             worksheet.append_row(row_data)
 
