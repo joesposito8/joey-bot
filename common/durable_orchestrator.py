@@ -108,29 +108,15 @@ class DurableOrchestrator:
             ]
             return base_topics[:num_topics]
         
-        # Create UNIVERSAL research planning prompt that works for ANY agent type
-        user_input_summary = "\n".join([f"**{key}**: {value}" for key, value in user_input.items()])
-        
         # Get agent personality to understand what type of analysis this is
         agent_personality = self.agent_config.definition.starter_prompt
         
-        # Simple universal planning prompt (not using architecture_planning which is for full workflow)
-        planning_prompt = f"""You are a research planning expert working with an AI analysis agent.
-
-## Agent Expertise:
-{agent_personality}
-
-## User Request:
-{user_input_summary}
-
-## Task:
-Based on the agent's expertise and the user's request, generate exactly {num_topics} specific, actionable research topics that will provide comprehensive analysis. The topics should be relevant to the agent's domain of expertise.
-
-## Output Format:
-Return ONLY a JSON array of exactly {num_topics} research topics as strings:
-["Research topic 1", "Research topic 2", ...]
-
-Each topic should be specific, actionable, and focused on gathering concrete insights relevant to the agent's field of expertise."""
+        # Use centralized research planning template from platform.yaml
+        planning_prompt = prompt_manager.format_research_planning_prompt(
+            agent_personality=agent_personality,
+            user_input=user_input,
+            num_topics=num_topics
+        )
 
         try:
             # Use OpenAI to generate research plan
@@ -200,19 +186,12 @@ Each topic should be specific, actionable, and focused on gathering concrete ins
                 confidence_level="medium"
             )
         
-        # Use existing universal analysis_call template from platform.yaml
-        research_prompt = prompt_manager.format_analysis_call_prompt(
+        # Use centralized research_call template from platform.yaml
+        research_prompt = prompt_manager.format_research_call_prompt(
             starter_prompt=self.agent_config.definition.starter_prompt,
-            call_purpose=research_topic,
+            research_topic=research_topic,
             user_input=user_input,
-            specific_instructions=f"""
-IMPORTANT: Provide your research findings in this exact JSON format:
-{get_research_output_parser().get_format_instructions()}
-
-Focus on gathering factual, relevant information about: {research_topic}
-Include specific data points, statistics, or insights where possible.
-Return ONLY the JSON object, no additional text.
-"""
+            json_format_instructions=get_research_output_parser().get_format_instructions()
         )
         
         try:

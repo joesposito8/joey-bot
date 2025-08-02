@@ -70,75 +70,6 @@ class PromptManager:
         return prompts[prompt_name]
     
     
-    def format_architecture_planning_prompt(
-        self, 
-        available_calls: int,
-        model: str,
-        original_prompt: str,
-        user_input: Dict[str, Any],
-        output_fields: list
-    ) -> str:
-        """Format the architecture planning prompt with specific parameters.
-        
-        Args:
-            available_calls: Number of API calls available
-            model: Model being used for analysis
-            original_prompt: The analysis prompt to execute
-            user_input: User's input data
-            output_fields: List of output field names
-            
-        Returns:
-            Formatted architecture planning prompt
-        """
-        if is_testing_mode():
-            return "Test planning prompt"
-            
-        template = self.get_prompt_template('architecture_planning')
-        
-        # Format user input summary
-        user_input_summary = "\\n".join([f"{key}: {value}" for key, value in user_input.items()])
-        
-        # Format output fields list
-        output_fields_str = ", ".join(output_fields)
-        
-        return template.format(
-            available_calls=available_calls,
-            model=model,
-            original_prompt=original_prompt,
-            user_input_summary=user_input_summary,
-            output_fields=output_fields_str
-        )
-    
-    def format_analysis_call_prompt(
-        self,
-        starter_prompt: str,
-        call_purpose: str,
-        user_input: Dict[str, Any],
-        specific_instructions: str = ""
-    ) -> str:
-        """Format universal analysis call prompt.
-        
-        Args:
-            starter_prompt: Agent-specific starter prompt
-            call_purpose: What this call should focus on
-            user_input: User's input data
-            specific_instructions: Additional instructions for this call
-            
-        Returns:
-            Formatted analysis call prompt
-        """
-        template = self.get_prompt_template('analysis_call')
-        
-        # Format user input generically
-        formatted_user_input = "\\n".join([f"**{key}**: {value}" for key, value in user_input.items()])
-        
-        return template.format(
-            starter_prompt=starter_prompt,
-            call_purpose=call_purpose,
-            formatted_user_input=formatted_user_input,
-            specific_instructions=specific_instructions
-        )
-    
     def format_synthesis_call_prompt(
         self,
         research_results: list,  # List of ResearchOutput objects
@@ -183,7 +114,62 @@ class PromptManager:
             field_definitions=field_definitions_str
         )
     
+    def format_research_planning_prompt(
+        self,
+        agent_personality: str,
+        user_input: Dict[str, Any],
+        num_topics: int
+    ) -> str:
+        """Format the research planning prompt with specific parameters.
+        
+        Args:
+            agent_personality: Agent's starter prompt/personality
+            user_input: User's input data
+            num_topics: Number of research topics to generate
+            
+        Returns:
+            Formatted research planning prompt
+        """
+        template = self.get_prompt_template('research_planning')
+        
+        # Format user input summary
+        user_input_summary = "\n".join([f"**{key}**: {value}" for key, value in user_input.items()])
+        
+        return template.format(
+            agent_personality=agent_personality,
+            user_input_summary=user_input_summary,
+            num_topics=num_topics
+        )
     
+    def format_research_call_prompt(
+        self,
+        starter_prompt: str,
+        research_topic: str,
+        user_input: Dict[str, Any],
+        json_format_instructions: str
+    ) -> str:
+        """Format the research call prompt with specific parameters.
+        
+        Args:
+            starter_prompt: Agent's starter prompt/personality
+            research_topic: Specific research topic to investigate
+            user_input: User's input data
+            json_format_instructions: JSON format instructions from parser
+            
+        Returns:
+            Formatted research call prompt
+        """
+        template = self.get_prompt_template('research_call')
+        
+        # Format user input generically
+        formatted_user_input = "\n".join([f"**{key}**: {value}" for key, value in user_input.items()])
+        
+        return template.format(
+            starter_prompt=starter_prompt,
+            research_topic=research_topic,
+            formatted_user_input=formatted_user_input,
+            json_format_instructions=json_format_instructions
+        )
 
 
 # Global instance
