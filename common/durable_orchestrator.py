@@ -175,14 +175,7 @@ Each topic should be specific, actionable, and focused on gathering concrete ins
                 
         except Exception as e:
             logging.error(f"Research planning failed: {str(e)}")
-            # Fallback to basic topics
-            fallback_topics = [
-                f"Market opportunity analysis for {user_input.get('Idea_Overview', 'the business idea')}",
-                f"Competitive analysis in the {user_input.get('Deliverable', 'product')} space",
-                f"Technical implementation feasibility",
-                f"Business model and monetization strategy"
-            ]
-            return fallback_topics[:num_topics]
+            raise RuntimeError(f"Failed to generate research topics: {str(e)}")
     
     def execute_research_call(self, research_topic: str, user_input: Dict[str, Any]) -> ResearchOutput:
         """Execute single research call using universal analysis_call template + LangChain.
