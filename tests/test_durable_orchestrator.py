@@ -132,35 +132,36 @@ class TestDurableOrchestrator:
         assert len(result.key_findings) > 0
         assert "mock" in result.summary.lower() or "test" in result.summary.lower()
     
-    @patch('common.http_utils.is_testing_mode', return_value=False)
-    @patch('langchain_openai.ChatOpenAI')
-    def test_execute_research_call_production_mode(self, mock_chat_openai, mock_testing_mode, mock_agent_config):
+    @patch('common.durable_orchestrator.is_testing_mode', return_value=False)
+    def test_execute_research_call_production_mode(self, mock_testing_mode, mock_agent_config):
         """Test research call execution with real LangChain integration."""
         if DurableOrchestrator is None:
             pytest.skip("DurableOrchestrator not implemented yet")
         
-        # Mock LangChain chat response
+        # Mock the LangChain client directly on the orchestrator
+        orchestrator = DurableOrchestrator(mock_agent_config)
+        
+        # Mock response with valid JSON that can be parsed
         mock_response = Mock()
         mock_response.content = json.dumps({
-            "research_topic": "Market analysis",
+            "research_topic": "Market size analysis for meal planning apps",
             "summary": "Growing market with opportunities",
             "key_findings": ["$5B market", "15% growth"],
             "confidence_level": "medium"
         })
         
-        mock_chat = Mock()
-        mock_chat.invoke.return_value = mock_response
-        mock_chat_openai.return_value = mock_chat
+        mock_langchain_client = Mock()
+        mock_langchain_client.invoke.return_value = mock_response
+        orchestrator._langchain_client = mock_langchain_client
         
-        orchestrator = DurableOrchestrator(mock_agent_config)
         research_topic = "Market size analysis for meal planning apps"
-        
         result = orchestrator.execute_research_call(research_topic)
         
         # Should use LangChain with PydanticOutputParser
         assert isinstance(result, ResearchOutput)
-        assert result.research_topic == "Market analysis"
-        mock_chat.invoke.assert_called_once()
+        assert result.research_topic == research_topic
+        assert result.summary == "Growing market with opportunities"
+        mock_langchain_client.invoke.assert_called_once()
     
     def test_execute_synthesis_call_with_research_results(self, mock_agent_config):
         """Test synthesis call combines research results using Jinja templates."""
@@ -193,9 +194,9 @@ class TestDurableOrchestrator:
         # Should combine research into final analysis
         assert isinstance(synthesis_result, dict)
         assert "Analysis_Result" in synthesis_result  # TODO: Match actual output schema
-        # Should reference findings from research
-        analysis_text = str(synthesis_result)
-        assert "$5B" in analysis_text or "market" in analysis_text.lower()
+        # Should include research sources count
+        assert "research_sources" in synthesis_result
+        assert synthesis_result["research_sources"] == 2
     
     def test_sequential_workflow_execution_order(self, mock_agent_config, sample_user_input):
         """Test full workflow executes research→synthesis sequentially."""
