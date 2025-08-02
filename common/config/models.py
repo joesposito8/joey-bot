@@ -194,29 +194,6 @@ IMPORTANT: Once all fields are collected, call the get_pricepoints endpoint to g
 
 Begin by asking for the first field."""
 
-    def generate_analysis_prompt(self, user_input: Dict) -> str:
-        """Generate complete analysis prompt = starter + schema + input."""
-
-        # Format user input with descriptions
-        input_section = []
-        for field in self.schema.input_fields:
-            value = user_input.get(field.name, "")
-            input_section.append(f"**{field.name}** ({field.description}): {value}")
-
-        # Build output schema
-        output_schema = {
-            field.name: field.description for field in self.schema.output_fields
-        }
-
-        return f"""
-{self.definition.starter_prompt}
-
-Here is the information provided:
-{chr(10).join(input_section)}
-
-Provide your analysis in exactly this JSON format:
-{json.dumps(output_schema, indent=2)}
-"""
 
     def get_universal_setting(self, setting_name: str, default: Any = None) -> Any:
         """Get a universal setting from platform config.

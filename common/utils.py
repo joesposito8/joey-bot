@@ -74,13 +74,6 @@ def get_spreadsheet(
         raise
 
 
-def validate_analysis_result(parsed_json: dict, expected_fields: List[str]):
-    actual_fields = list(parsed_json.keys())
-
-    if actual_fields != expected_fields:
-        raise ValueError(
-            f"Analysis result validation failed: expected {expected_fields} but got {actual_fields}"
-        )
 
 
 def extract_json_from_text(text: str, expected_output: Information) -> dict | None:
@@ -90,7 +83,6 @@ def extract_json_from_text(text: str, expected_output: Information) -> dict | No
     if json_block_match:
         try:
             parsed = json.loads(json_block_match.group(1))
-            validate_analysis_result(parsed, list(expected_output.columns.keys()))
             return parsed
         except (json.JSONDecodeError, ValueError):
             pass
@@ -101,7 +93,6 @@ def extract_json_from_text(text: str, expected_output: Information) -> dict | No
     if block_match:
         try:
             parsed = json.loads(block_match.group(1))
-            validate_analysis_result(parsed, list(expected_output.columns.keys()))
             return parsed
         except (json.JSONDecodeError, ValueError):
             pass
@@ -121,7 +112,6 @@ def extract_json_from_text(text: str, expected_output: Information) -> dict | No
                 .replace('\\t', '\t')
             )
             parsed = json.loads(unescaped_json)
-            validate_analysis_result(parsed, list(expected_output.columns.keys()))
             return parsed
         except (json.JSONDecodeError, ValueError):
             pass
@@ -146,7 +136,6 @@ def extract_json_from_text(text: str, expected_output: Information) -> dict | No
                     .replace('\\t', '\t')
                 )
             parsed = json.loads(cleaned_json)
-            validate_analysis_result(parsed, list(expected_output.columns.keys()))
             return parsed
         except (json.JSONDecodeError, ValueError):
             continue
@@ -170,7 +159,6 @@ def extract_json_from_text(text: str, expected_output: Information) -> dict | No
                 except ValueError:
                     result[key] = value
             if result:
-                validate_analysis_result(result, list(expected_output.columns.keys()))
                 return result
     except Exception:
         pass
