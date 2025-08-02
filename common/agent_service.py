@@ -195,24 +195,24 @@ class AnalysisService:
             logging.warning("Running in testing mode - creating mock job")
             return self._create_mock_job(user_input, budget_tier)
 
-        # TODO: Replace with new Durable Functions orchestrator
-        # Temporary implementation until durable_orchestrator.py is created
-        import uuid
-        analysis_job_id = f"temp_job_{uuid.uuid4()}"
-        logging.info(f"Created temporary job ID (will be replaced with Durable Functions): {analysis_job_id}")
+        # Execute research→synthesis workflow using DurableOrchestrator
+        from .durable_orchestrator import DurableOrchestrator
         
-        # Note: This is a temporary placeholder - the new system will:
-        # 1. Create research plan using _create_research_plan()
-        # 2. Execute research→synthesis workflow via Durable Functions
-        # 3. Store research_plan in spreadsheet record
+        orchestrator = DurableOrchestrator(self.agent_config)
+        workflow_result = orchestrator.execute_workflow(user_input, budget_tier)
+        
+        analysis_job_id = workflow_result["job_id"]
+        logging.info(f"Created DurableOrchestrator job: {analysis_job_id}")
 
         # Create spreadsheet record with the OpenAI job ID
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         try:
-            self._create_spreadsheet_record(analysis_job_id, timestamp, user_input)
+            # Include research plan in spreadsheet record
+            research_plan = workflow_result.get("research_plan", {})
+            self._create_spreadsheet_record(analysis_job_id, timestamp, user_input, research_plan)
             logging.info(
-                f"Created spreadsheet record with OpenAI job ID: {analysis_job_id}"
+                f"Created spreadsheet record with job ID: {analysis_job_id}"
             )
         except Exception as e:
             logging.error(f"Failed to create spreadsheet record: {str(e)}")
@@ -220,16 +220,19 @@ class AnalysisService:
 
         return {
             "job_id": analysis_job_id,
-            "status": "processing",
+            "status": workflow_result.get("status", "completed"),
             "agent_type": self.agent_config.definition.agent_id,
             "budget_tier": budget_tier,
-            "message": f"Analysis started with {budget_tier} tier. Use job_id to poll /api/process_idea",
+            "research_calls_made": workflow_result.get("research_calls_made", 0),
+            "synthesis_calls_made": workflow_result.get("synthesis_calls_made", 0),
+            "research_plan": research_plan,
+            "message": f"Analysis completed with {budget_tier} tier. Results available via job_id",
             "next_endpoint": f"/api/process_idea?id={analysis_job_id}",
             "timestamp": datetime.datetime.now().isoformat(),
         }
 
     def _create_spreadsheet_record(
-        self, job_id: str, timestamp: str, user_input: Dict[str, Any]
+        self, job_id: str, timestamp: str, user_input: Dict[str, Any], research_plan: Dict[str, Any] = None
     ) -> None:
         """Create initial spreadsheet record for job tracking.
 
@@ -237,12 +240,21 @@ class AnalysisService:
             job_id: Unique job identifier
             timestamp: Creation timestamp
             user_input: User's input data
+            research_plan: Optional research plan from DurableOrchestrator
         """
         try:
             worksheet = self.spreadsheet.get_worksheet(0)
 
-            # Create row with job ID, timestamp, and input data
+            # Create row with job ID, timestamp, research plan, and input data
             row_data = [job_id, timestamp]
+            
+            # Add research plan as third column (JSON string)
+            if research_plan:
+                import json
+                research_plan_str = json.dumps(research_plan, separators=(',', ':'))
+                row_data.append(research_plan_str)
+            else:
+                row_data.append("")
 
             # Add input column values in dynamic schema order
             for field in self.agent_config.schema.input_fields:

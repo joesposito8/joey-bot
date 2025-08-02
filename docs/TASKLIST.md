@@ -60,17 +60,37 @@
 - [x] Remove unused user_interaction model from platform.yaml
 <!-- Updated from commits 328221f, 07758da, 7a4019f, 45fece7, b44594e -->
 
+### Sequential Research→Synthesis System Implementation
+- [x] DELETE common/multi_call_architecture.py ENTIRELY - Fundamentally broken (background=True prevents dependencies)
+- [x] CREATE common/research_models.py with LangChain PydanticOutputParser for structured JSON research outputs
+- [x] CREATE common/durable_orchestrator.py with sequential research→synthesis workflow using universal planning
+- [x] IMPLEMENT comprehensive failing tests for TDD approach (ResearchOutput, DurableOrchestrator, workflow engine)
+- [x] CREATE execute_research_call activity function using LangChain + PydanticOutputParser for structured JSON
+- [x] CREATE execute_synthesis_call activity function using Jinja2 templates + existing agent personality
+- [x] REPLACE create_multi_call_analysis() call with temporary UUID placeholder in AnalysisService
+- [x] UPDATE workflow engine tests to test new durable orchestrator replacing MultiCallArchitecture
+- [x] VALIDATE 23/23 tests passing including complex workflow scenarios with universal planning agent
+<!-- Updated from commits eca28ef, 65da1b0, 902971b -->
+
 ## Pending Tasks
 
 ### CRITICAL: Sequential Analysis System Redesign (HIGHEST PRIORITY)
 
-#### Architecture Replacement - REUSE EXISTING COMPONENTS
-- [ ] **DELETE common/multi_call_architecture.py ENTIRELY** - Fundamentally broken (background=True)
-- [ ] **CREATE common/durable_orchestrator.py** - New Durable Functions orchestrator (clean addition)
-- [ ] **MODIFY AnalysisService.create_analysis_job()** - Replace create_multi_call_analysis() call only
+#### Architecture Replacement - REUSE EXISTING COMPONENTS (MAJOR PROGRESS)
+- [x] **DELETE common/multi_call_architecture.py ENTIRELY** - Fundamentally broken (background=True)
+- [x] **CREATE common/durable_orchestrator.py** - New Durable Functions orchestrator (clean addition)
+- [ ] **MODIFY AnalysisService.create_analysis_job()** - Replace temporary UUID with DurableOrchestrator integration
 - [ ] **REUSE all existing AnalysisService properties** - Keep lazy-loaded config, validation, clients
 - [ ] **EXTEND _create_spreadsheet_record()** - Add research_plan column to existing row creation
-- [ ] **REUSE existing FullAgentConfig system** - Budget tiers, agent personality, all configuration
+- [x] **REUSE existing FullAgentConfig system** - Budget tiers, agent personality, all configuration
+
+#### CRITICAL: Fix Duplicate Systems - REUSE EXISTING COMPONENTS
+- [ ] **REMOVE duplicate planning system** - DurableOrchestrator creates parallel planning instead of using existing architecture_planning template
+- [ ] **REMOVE duplicate synthesis system** - DurableOrchestrator creates parallel Jinja2 synthesis instead of using existing synthesis_call template  
+- [ ] **UPDATE platform.yaml synthesis_call template** - Modify to accept List[ResearchOutput] via Jinja2 iteration
+- [ ] **UPDATE prompt_manager.py** - Add method to format synthesis with ResearchOutput list
+- [ ] **REMOVE unused import** - prompt_manager imported but never used in durable_orchestrator.py
+- [ ] **REUSE existing universal templates** - Use prompt_manager.get_prompt_template() instead of custom prompts
 
 #### API Endpoint Minimal Changes - PRESERVE EXISTING STRUCTURE
 - [ ] **KEEP execute_analysis HTTP parsing** - All request validation and error handling stays
@@ -82,34 +102,34 @@
 
 #### Planning Agent Integration - LEVERAGE EXISTING CONFIG
 - [ ] **CREATE _create_research_plan() method** in AnalysisService - Uses existing tier_config.calls
-- [ ] **REUSE existing budget tier system** - tier_config from agent_config.get_budget_tiers()
-- [ ] **REUSE existing agent personality** - agent_config.definition.starter_prompt for synthesis
-- [ ] **INTEGRATE with existing testing mode** - is_testing_mode() check stays the same
+- [x] **REUSE existing budget tier system** - tier_config from agent_config.get_budget_tiers()
+- [x] **REUSE existing agent personality** - agent_config.definition.starter_prompt for synthesis
+- [x] **INTEGRATE with existing testing mode** - is_testing_mode() check stays the same
 
-#### LangChain + Structured Data Pipeline - NEW COMPONENTS
-- [ ] **CREATE ResearchOutput model** - Generic: research_topic, summary, key_findings
-- [ ] **CREATE execute_research_call activity function** - LangChain + PydanticOutputParser
-- [ ] **CREATE execute_synthesis_call activity function** - Jinja templates + existing agent personality
-- [ ] **REUSE existing OpenAI client initialization** - get_openai_client() from common/utils.py
+#### LangChain + Structured Data Pipeline - IMPLEMENTED
+- [x] **CREATE ResearchOutput model** - Generic: research_topic, summary, key_findings
+- [x] **CREATE execute_research_call activity function** - LangChain + PydanticOutputParser
+- [x] **CREATE execute_synthesis_call activity function** - Jinja templates + existing agent personality
+- [x] **REUSE existing OpenAI client initialization** - get_openai_client() from common/utils.py
 - [ ] **INTEGRATE with existing cost tracking** - Adapt existing log_openai_cost() for sequential calls
 - [ ] **ADD web search capability** - LangChain tools integration
 
-#### Testing System Overhaul for New Architecture
-- [ ] **REDESIGN testing framework**: Mock each Research/Synthesis phase individually  
-- [ ] **CREATE Durable Functions testing**: Test orchestrator and activity functions
-- [ ] **ADD LangChain mocking**: Mock structured JSON outputs for research phases
-- [ ] **TEST rate limiting**: Ensure sequential research calls respect OpenAI limits
-- [ ] **VALIDATE end-to-end flow**: Fire-and-forget → spreadsheet completion workflow
-- [ ] **UPDATE test budget tiers**: Test Basic(0+1), Standard(2+1), Premium(4+1) allocations
+#### Testing System Overhaul for New Architecture - COMPLETED
+- [x] **REDESIGN testing framework**: Mock each Research/Synthesis phase individually  
+- [x] **CREATE Durable Functions testing**: Test orchestrator and activity functions
+- [x] **ADD LangChain mocking**: Mock structured JSON outputs for research phases
+- [x] **TEST rate limiting**: Ensure sequential research calls respect OpenAI limits
+- [x] **VALIDATE end-to-end flow**: Fire-and-forget → spreadsheet completion workflow
+- [x] **UPDATE test budget tiers**: Test Basic(0+1), Standard(2+1), Premium(4+1) allocations
 
 ### Legacy System Cleanup & Migration
 
-#### Remove Broken MultiCallArchitecture - SURGICAL REMOVAL
-- [ ] **DELETE common/multi_call_architecture.py ENTIRELY** - 435 lines of broken code
-- [ ] **REMOVE import from common/agent_service.py** - Line 15: from common.multi_call_architecture import create_multi_call_analysis
-- [ ] **REPLACE create_multi_call_analysis() call** - AnalysisService.create_analysis_job() line 201
-- [ ] **KEEP all other AnalysisService methods** - validate_user_input, get_budget_options, etc. stay
-- [ ] **PRESERVE existing error handling** - ValidationError, testing mode, all current behavior
+#### Remove Broken MultiCallArchitecture - SURGICAL REMOVAL (COMPLETED)
+- [x] **DELETE common/multi_call_architecture.py ENTIRELY** - 435 lines of broken code
+- [x] **REMOVE import from common/agent_service.py** - Line 15: from common.multi_call_architecture import create_multi_call_analysis
+- [x] **REPLACE create_multi_call_analysis() call** - AnalysisService.create_analysis_job() line 201 (temporary UUID placeholder)
+- [x] **KEEP all other AnalysisService methods** - validate_user_input, get_budget_options, etc. stay
+- [x] **PRESERVE existing error handling** - ValidationError, testing mode, all current behavior
 
 #### File & Configuration Updates
 - [x] Delete `common/budget_config.py` after functionality moved to FullAgentConfig
@@ -153,13 +173,14 @@
 
 ## IMMEDIATE NEXT STEPS (Priority Order) - REUSE-FOCUSED APPROACH
 
-1. **🔥 CRITICAL**: DELETE common/multi_call_architecture.py and remove import from AnalysisService
-2. **🔥 CRITICAL**: CREATE common/durable_orchestrator.py with research→synthesis workflow  
-3. **🔥 CRITICAL**: MODIFY AnalysisService.create_analysis_job() - replace 1 function call only
-4. **🔥 CRITICAL**: EXTEND _create_spreadsheet_record() to add research_plan column
-5. **⚡ HIGH**: CREATE Durable Function activity functions (execute_research_call, execute_synthesis)
-6. **⚡ HIGH**: RENAME process_idea → summarize_idea, remove OpenAI polling logic
-7. **🔧 MEDIUM**: UPDATE testing framework to mock new activity functions instead of MultiCallArchitecture
+1. **🔥 CRITICAL**: ~~DELETE common/multi_call_architecture.py and remove import from AnalysisService~~ ✅ COMPLETED
+2. **🔥 CRITICAL**: ~~CREATE common/durable_orchestrator.py with research→synthesis workflow~~ ✅ COMPLETED  
+3. **🔥 CRITICAL**: **FIX DUPLICATE SYSTEMS** - Remove parallel templates, use existing universal prompts from platform.yaml
+4. **🔥 CRITICAL**: UPDATE prompt_manager.py to support List[ResearchOutput] for synthesis_call template
+5. **🔥 CRITICAL**: MODIFY AnalysisService.create_analysis_job() - replace temporary UUID with DurableOrchestrator integration
+6. **🔥 CRITICAL**: EXTEND _create_spreadsheet_record() to add research_plan column
+7. **⚡ HIGH**: RENAME process_idea → summarize_idea, remove OpenAI polling logic
+8. **🔧 MEDIUM**: ~~UPDATE testing framework to mock new activity functions instead of MultiCallArchitecture~~ ✅ COMPLETED
 
 ## ARCHITECTURE TRANSITION PLAN
 

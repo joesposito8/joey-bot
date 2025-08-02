@@ -31,6 +31,21 @@ class TestDurableWorkflow:
         config.get_model.return_value = "gpt-4o-mini"
         config.get_universal_setting.return_value = 4
         
+        # Mock budget tiers: Basic(0+1), Standard(2+1), Premium(4+1)
+        basic_tier = Mock()
+        basic_tier.name = "basic"
+        basic_tier.calls = 1  # 0 research + 1 synthesis
+        
+        standard_tier = Mock()  
+        standard_tier.name = "standard"
+        standard_tier.calls = 3  # 2 research + 1 synthesis
+        
+        premium_tier = Mock()
+        premium_tier.name = "premium" 
+        premium_tier.calls = 5  # 4 research + 1 synthesis
+        
+        config.get_budget_tiers.return_value = [basic_tier, standard_tier, premium_tier]
+        
         # Mock schema with output fields
         config.schema = Mock()
         config.schema.output_fields = [

@@ -74,17 +74,21 @@ class SheetSchemaReader:
             description = row2[i].strip()
             column_name = row3[i].strip().replace(' ', '_')
             
-            # Require descriptions for all columns except ID and Time
-            if not description and column_name.lower() not in ['id', 'time']:
-                raise SchemaValidationError(f"Empty description for field '{column_name}' in column {i+1}. All fields except ID and Time must have descriptions.")
+            # Require descriptions for all columns except ID, Time, and Research_Plan (system columns)
+            if not description and column_name.lower() not in ['id', 'time', 'research_plan']:
+                raise SchemaValidationError(f"Empty description for field '{column_name}' in column {i+1}. All fields except ID, Time, and Research_Plan must have descriptions.")
             
-            # Normalize and validate field type (case insensitive)
-            if field_type == "user":
-                field_type = "user input"
-            elif field_type == "bot":
-                field_type = "bot output"
+            # Handle system columns (ID, Time, Research_Plan) - they don't need User/Bot field types
+            if column_name.lower() in ['id', 'time', 'research_plan']:
+                field_type = "system"  # Special type for system-managed columns
             else:
-                raise SchemaValidationError(f"Invalid field type '{row1[i].strip()}' in column {i+1}. Must be 'User' or 'Bot'")
+                # Normalize and validate field type for regular columns (case insensitive)
+                if field_type == "user":
+                    field_type = "user input"
+                elif field_type == "bot":
+                    field_type = "bot output"
+                else:
+                    raise SchemaValidationError(f"Invalid field type '{row1[i].strip()}' in column {i+1}. Must be 'User' or 'Bot'")
             
             # Check for duplicate column names
             if column_name in column_names_seen:
@@ -98,10 +102,12 @@ class SheetSchemaReader:
                 column_index=i
             )
             
+            # Only add user input and bot output fields to schema (exclude system fields)
             if field_type == "user input":
                 input_fields.append(field_config)
-            else:
+            elif field_type == "bot output":
                 output_fields.append(field_config)
+            # Skip system fields - they're not part of the input/output schema
         
         return SheetSchema(input_fields=input_fields, output_fields=output_fields)
     

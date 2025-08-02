@@ -184,11 +184,12 @@ Each topic should be specific, actionable, and focused on gathering concrete ins
             ]
             return fallback_topics[:num_topics]
     
-    def execute_research_call(self, research_topic: str) -> ResearchOutput:
-        """Execute single research call using LangChain + PydanticOutputParser.
+    def execute_research_call(self, research_topic: str, user_input: Dict[str, Any]) -> ResearchOutput:
+        """Execute single research call using universal analysis_call template + LangChain.
         
         Args:
             research_topic: Research topic to investigate
+            user_input: Original user input for context
             
         Returns:
             Structured ResearchOutput from LangChain parsing
@@ -206,18 +207,20 @@ Each topic should be specific, actionable, and focused on gathering concrete ins
                 confidence_level="medium"
             )
         
-        # Use LangChain with PydanticOutputParser for structured output
-        parser = get_research_output_parser()
-        
-        # Create research prompt
-        research_prompt = f"""You are conducting research on: {research_topic}
+        # Use existing universal analysis_call template from platform.yaml
+        research_prompt = prompt_manager.format_analysis_call_prompt(
+            starter_prompt=self.agent_config.definition.starter_prompt,
+            call_purpose=research_topic,
+            user_input=user_input,
+            specific_instructions=f"""
+IMPORTANT: Provide your research findings in this exact JSON format:
+{get_research_output_parser().get_format_instructions()}
 
-Please provide structured research findings in the following JSON format:
-{parser.get_format_instructions()}
-
-Focus on providing factual, relevant information about this research topic.
+Focus on gathering factual, relevant information about: {research_topic}
 Include specific data points, statistics, or insights where possible.
+Return ONLY the JSON object, no additional text.
 """
+        )
         
         try:
             # Execute LangChain call
@@ -225,6 +228,7 @@ Include specific data points, statistics, or insights where possible.
             response = self.langchain_client.invoke([message])
             
             # Parse structured output
+            parser = get_research_output_parser()
             parsed_result = parser.parse(response.content)
             
             logging.info(f"Completed research call for: {research_topic}")
@@ -318,7 +322,7 @@ Include specific data points, statistics, or insights where possible.
             # Execute all research calls sequentially (rate-limit friendly)
             research_results = []
             for topic in research_plan["research_topics"]:
-                result = self.execute_research_call(topic)
+                result = self.execute_research_call(topic, user_input)
                 research_results.append(result)
                 logging.info(f"Completed research: {topic}")
             

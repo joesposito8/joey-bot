@@ -123,7 +123,8 @@ class TestDurableOrchestrator:
         orchestrator = DurableOrchestrator(mock_agent_config)
         
         research_topic = "Market size analysis for meal planning apps"
-        result = orchestrator.execute_research_call(research_topic)
+        user_input = {"Idea_Overview": "Test meal planning app", "Deliverable": "mobile app"}
+        result = orchestrator.execute_research_call(research_topic, user_input)
         
         # Should return mock ResearchOutput in testing mode
         assert isinstance(result, ResearchOutput)
@@ -155,7 +156,8 @@ class TestDurableOrchestrator:
         orchestrator._langchain_client = mock_langchain_client
         
         research_topic = "Market size analysis for meal planning apps"
-        result = orchestrator.execute_research_call(research_topic)
+        user_input = {"Idea_Overview": "Test meal planning app", "Deliverable": "mobile app"}
+        result = orchestrator.execute_research_call(research_topic, user_input)
         
         # Should use LangChain with PydanticOutputParser
         assert isinstance(result, ResearchOutput)
@@ -208,7 +210,7 @@ class TestDurableOrchestrator:
         # Track execution order
         execution_log = []
         
-        def mock_research_call(topic):
+        def mock_research_call(topic, user_input):
             execution_log.append(f"research: {topic}")
             return ResearchOutput(
                 research_topic=topic,
@@ -252,7 +254,8 @@ class TestErrorHandling:
             mock_chat.side_effect = Exception("API Error")
             
             # Should handle error gracefully
-            result = orchestrator.execute_research_call("Test topic")
+            user_input = {"Idea_Overview": "Test idea", "Deliverable": "test product"}
+            result = orchestrator.execute_research_call("Test topic", user_input)
             
             # Should return fallback ResearchOutput or raise specific exception
             # TODO: Define exact error handling behavior

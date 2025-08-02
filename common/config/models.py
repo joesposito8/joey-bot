@@ -19,8 +19,8 @@ class FieldConfig:
 
     def __post_init__(self):
         """Validate field configuration."""
-        if self.type not in ["user input", "bot output", "ID", "Time"]:
-            raise ValueError(f"Invalid field type '{self.type}'. Must be one of: user input, bot output, ID, Time")
+        if self.type not in ["user input", "bot output", "ID", "Time", "system"]:
+            raise ValueError(f"Invalid field type '{self.type}'. Must be one of: user input, bot output, ID, Time, system")
 
 
 @dataclass
