@@ -199,20 +199,25 @@ class FullAgentConfig:
         if self.definition.models and model_type in self.definition.models:
             return self.definition.models[model_type]
 
-        # Fall back to universal platform model
-        if self.universal_config and 'models' in self.universal_config:
-            return self.universal_config['models'].get(model_type, 'gpt-4o-mini')
-
-        return 'gpt-4o-mini'  # Final fallback
+        # Check universal platform model configuration
+        if not self.universal_config or 'models' not in self.universal_config:
+            raise ValidationError(f"No universal model configuration found in platform.yaml")
+        
+        models = self.universal_config['models']
+        if model_type not in models:
+            available_models = list(models.keys())
+            raise ValidationError(f"Unknown model type '{model_type}'. Available: {available_models}")
+        
+        return models[model_type]
 
     def get_budget_tiers(self) -> List[BudgetTierConfig]:
         """Get universal budget tiers for all agents."""
         if not self.universal_config or 'platform' not in self.universal_config:
-            return []
+            raise ValidationError("No platform configuration found - platform.yaml missing or corrupted")
 
         platform_config = self.universal_config['platform']
         if 'budget_tiers' not in platform_config:
-            return []
+            raise ValidationError("No budget_tiers configuration found in platform.yaml - pricing system requires budget tiers")
 
         tiers = []
         for tier_data in platform_config['budget_tiers']:

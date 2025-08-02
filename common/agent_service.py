@@ -219,13 +219,21 @@ class AnalysisService:
             logging.error(f"Failed to create spreadsheet record: {str(e)}")
             raise ValidationError(f"Failed to create spreadsheet record: {str(e)}")
 
+        # Validate workflow result has required fields instead of using silent defaults
+        if "status" not in workflow_result:
+            raise RuntimeError("Workflow result missing required 'status' field - indicates DurableOrchestrator malfunction")
+        if "research_calls_made" not in workflow_result:
+            raise RuntimeError("Workflow result missing required 'research_calls_made' field - indicates DurableOrchestrator malfunction")
+        if "synthesis_calls_made" not in workflow_result:
+            raise RuntimeError("Workflow result missing required 'synthesis_calls_made' field - indicates DurableOrchestrator malfunction")
+        
         return {
             "job_id": analysis_job_id,
-            "status": workflow_result.get("status", "completed"),
+            "status": workflow_result["status"],
             "agent_type": self.agent_config.definition.agent_id,
             "budget_tier": budget_tier,
-            "research_calls_made": workflow_result.get("research_calls_made", 0),
-            "synthesis_calls_made": workflow_result.get("synthesis_calls_made", 0),
+            "research_calls_made": workflow_result["research_calls_made"],
+            "synthesis_calls_made": workflow_result["synthesis_calls_made"],
             "research_plan": research_plan,
             "message": f"Analysis completed with {budget_tier} tier. Results available via job_id",
             "next_endpoint": f"/api/summarize_idea?id={analysis_job_id}",

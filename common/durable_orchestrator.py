@@ -100,10 +100,14 @@ class DurableOrchestrator:
             return []
         
         if is_testing_mode():
-            # Return mock topics for testing
+            # Return mock topics for testing - use actual user input fields without fallbacks
+            # If required fields are missing, let it fail explicitly
+            idea_overview = user_input.get('Idea_Overview', 'MISSING_IDEA_OVERVIEW')
+            deliverable = user_input.get('Deliverable', 'MISSING_DELIVERABLE')
+            
             base_topics = [
-                f"Market analysis for {user_input.get('Idea_Overview', 'idea')}",
-                f"Competitive landscape for {user_input.get('Deliverable', 'product')}",
+                f"Market analysis for {idea_overview}",
+                f"Competitive landscape for {deliverable}",
                 f"Technical feasibility analysis",
                 f"Business model evaluation"
             ]
@@ -203,13 +207,8 @@ class DurableOrchestrator:
             
         except Exception as e:
             logging.error(f"Research call failed for {research_topic}: {str(e)}")
-            # Return fallback result
-            return ResearchOutput(
-                research_topic=research_topic,
-                summary=f"Research failed: {str(e)}",
-                key_findings=["Unable to complete research due to error"],
-                confidence_level="low"
-            )
+            # Don't mask failures with fake data - raise the error to fail fast
+            raise RuntimeError(f"Research call failed for '{research_topic}': {str(e)}. This indicates a system issue that needs immediate attention.")
     
     def execute_synthesis_call(self, research_results: List[ResearchOutput], user_input: Dict[str, Any]) -> Dict[str, Any]:
         """Execute synthesis call combining ALL research results using Jinja2 templates.
