@@ -15,6 +15,7 @@ from .research_models import ResearchOutput, get_research_output_parser
 from .http_utils import is_testing_mode
 from .prompt_manager import prompt_manager
 from common import get_openai_client
+from common.utils import clean_json_response
 
 
 class DurableOrchestrator:
@@ -131,17 +132,11 @@ class DurableOrchestrator:
             if hasattr(response, 'output') and response.output:
                 response_text = response.output[-1].content[0].text.strip()
                 
-                # Clean JSON response
-                if response_text.startswith('```json'):
-                    response_text = response_text[7:]
-                if response_text.startswith('```'):
-                    response_text = response_text[3:]
-                if response_text.endswith('```'):
-                    response_text = response_text[:-3]
-                response_text = response_text.strip()
+                # Clean JSON response using centralized utility
+                cleaned_response = clean_json_response(response_text)
                 
                 # Parse JSON array
-                topics = json.loads(response_text)
+                topics = json.loads(cleaned_response)
                 
                 if isinstance(topics, list) and len(topics) == num_topics:
                     logging.info(f"Generated {len(topics)} research topics using planning agent")
@@ -255,9 +250,10 @@ class DurableOrchestrator:
             if hasattr(response, 'output') and response.output:
                 response_text = response.output[-1].content[0].text
                 
-                # Try to parse JSON response
+                # Try to parse JSON response using centralized utility
                 try:
-                    result = json.loads(response_text)
+                    cleaned_response = clean_json_response(response_text)
+                    result = json.loads(cleaned_response)
                     result["synthesis_sources"] = len(research_results)
                     return result
                 except json.JSONDecodeError:

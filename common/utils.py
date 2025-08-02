@@ -76,6 +76,29 @@ def get_spreadsheet(
 
 
 
+def clean_json_response(text: str) -> str:
+    """Clean JSON response by removing markdown formatting.
+    
+    Args:
+        text: Raw response text that may contain JSON wrapped in markdown
+        
+    Returns:
+        Cleaned JSON string ready for parsing
+    """
+    cleaned = text.strip()
+    
+    # Remove ```json and ``` markers
+    if cleaned.startswith('```json'):
+        cleaned = cleaned[7:]
+    elif cleaned.startswith('```'):
+        cleaned = cleaned[3:]
+    
+    if cleaned.endswith('```'):
+        cleaned = cleaned[:-3]
+    
+    return cleaned.strip()
+
+
 def extract_json_from_text(text: str, expected_output: Information) -> dict | None:
     # Strategy 1: Look for JSON wrapped in ```json ... ``` blocks
     json_block_pattern = r'```json\s*(\{.*?\})\s*```'
