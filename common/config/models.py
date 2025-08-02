@@ -200,10 +200,14 @@ class FullAgentConfig:
             return self.definition.models[model_type]
 
         # Check universal platform model configuration
-        if not self.universal_config or 'models' not in self.universal_config:
-            raise ValidationError(f"No universal model configuration found in platform.yaml")
+        if not self.universal_config or 'platform' not in self.universal_config:
+            raise ValidationError(f"No platform configuration found in platform.yaml")
         
-        models = self.universal_config['models']
+        platform_config = self.universal_config['platform']
+        if 'models' not in platform_config:
+            raise ValidationError(f"No models configuration found in platform.yaml")
+            
+        models = platform_config['models']
         if model_type not in models:
             available_models = list(models.keys())
             raise ValidationError(f"Unknown model type '{model_type}'. Available: {available_models}")

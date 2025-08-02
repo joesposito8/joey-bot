@@ -1,21 +1,24 @@
 # Universal AI Agent Platform - System Architecture
 
 **Last Updated**: 2025-08-02  
-**System Status**: ARCHITECTURAL PERFECTION ACHIEVED - Complete Prompt Centralization & Endpoint Modernization  
+**System Status**: PRODUCTION-READY RELIABILITY ACHIEVED - Enhanced User Experience & Robust Error Handling  
 **Recent Changes**: 
 - **BREAKTHROUGH**: Complete replacement of broken MultiCallArchitecture with new DurableOrchestrator system
 - **MAJOR**: Achieved 64/64 tests passing (100% pass rate) with comprehensive Jinja2 template integration
 - **MAJOR**: Implemented sequential research→synthesis workflow using LangChain + structured JSON handoff
 - **MAJOR**: **RENAMED process_idea → summarize_idea**: Eliminated OpenAI polling, direct Google Sheets lookup for results
-- **MAJOR**: **PROMPT CENTRALIZATION**: Moved all hardcoded prompts from code to platform.yaml (research_planning, research_call templates)
+- **MAJOR**: **PROMPT CENTRALIZATION**: Moved all hardcoded prompts from code to platform.yaml (research_planning, research_call, user_instructions)
 - **MAJOR**: **PLATFORM.YAML CLEANUP**: Removed 67+ lines of unused complex templates (architecture_planning, analysis_call)
+- **MAJOR**: **ENHANCED USER INSTRUCTIONS**: Added user_instructions template with detailed field descriptions and better formatting
 - **MAJOR**: **IMMEDIATE RESULT STORAGE**: Enhanced spreadsheet records to include complete analysis results synchronously
+- **CRITICAL**: **FALLBACK LOGIC AUDIT**: Removed problematic silent fallbacks that masked configuration errors and system failures
 - **IMPROVEMENT**: Elegant simplification from complex dependency planning to simple sequential workflow
-- **IMPROVEMENT**: All prompts now centralized in platform.yaml for easy maintenance and version control
+- **IMPROVEMENT**: All prompts now centralized in platform.yaml for easy maintenance and version control with Jinja2 templates
 - **IMPROVEMENT**: Added proper system column handling (ID, Time, Research_Plan)
+- **IMPROVEMENT**: Fail-fast error handling with explicit validation instead of silent defaults
 - Complete elimination of broken background=True dependency architecture and hardcoded prompts
-- Production-ready sequential workflow with centralized prompt management and elegant design
-<!-- Updated to reflect prompt centralization and summarize_idea implementation in commits e1364e5, 2a5c0c2 -->
+- Production-ready sequential workflow with centralized prompt management, enhanced UX, and robust error handling
+<!-- Updated to reflect user instructions centralization and fallback logic removal in commits bdb4607, 145a696 -->
 
 # 1. High-Level Architecture
 
@@ -70,8 +73,8 @@ The Universal AI Agent Platform enables ANY type of AI-powered analysis through 
 - `common/config/models.py` - Core data models with enhanced validation (FieldConfig, BudgetTierConfig, FullAgentConfig)
 - `common/config/agent_definition.py` - YAML parsing and agent configuration loading with proper ValidationError handling
 - `common/config/sheet_schema_reader.py` - Google Sheets dynamic schema parsing with required description validation
-- `common/platform.yaml` - **CENTRALIZED UNIVERSAL CONFIGURATION** - All prompts now centralized (removed 67+ lines of unused templates)
-- `common/prompt_manager.py` - Enhanced with centralized template formatting methods for research workflow
+- `common/platform.yaml` - **CENTRALIZED UNIVERSAL CONFIGURATION** - All prompts now centralized (removed 67+ lines of unused templates, added user_instructions template)
+- `common/prompt_manager.py` - Enhanced with centralized template formatting methods for research workflow and user instruction generation
 
 **Dependencies**: Google Sheets API, YAML parser, validation framework
 
@@ -79,9 +82,9 @@ The Universal AI Agent Platform enables ANY type of AI-powered analysis through 
 ```python
 class FullAgentConfig:
     def get_universal_setting(self, setting_name: str) -> Any
-    def get_model(self, model_type: str) -> str
-    def get_budget_tiers(self) -> List[BudgetTierConfig]
-    def generate_instructions() -> str
+    def get_model(self, model_type: str) -> str  # Now raises ValidationError for unknown models
+    def get_budget_tiers(self) -> List[BudgetTierConfig]  # Now raises ValidationError if missing
+    def generate_instructions() -> str  # Now uses centralized user_instructions template
 ```
 
 **Component Diagram**:
@@ -317,11 +320,11 @@ TESTING_MODE="true"                                   # Optional (prevents API c
 - **DurableOrchestrator Workflow Engine** (`common/durable_orchestrator.py`) - Sequential research→synthesis with LangChain + structured JSON, zero hardcoded prompts
 - **ResearchOutput Models** (`common/research_models.py`) - Pydantic models with LangChain PydanticOutputParser integration
 - **Configuration Loading** (`common/config/models.py`) - Four-layer configuration system with system column validation
-- **Template Integration** (`common/prompt_manager.py`) - **ENHANCED** with centralized research_planning and research_call template formatting
+- **Template Integration** (`common/prompt_manager.py`) - **ENHANCED** with centralized research_planning, research_call, and user_instructions template formatting
 - **Modernized API Endpoints** (`idea-guy/summarize_idea/`) - Direct Google Sheets lookup eliminates OpenAI polling complexity
 - **Cost Tracking** (`common/cost_tracker.py`) - OpenAI API cost logging and monitoring
 - **Testing Mode** (`common/http_utils.py`) - `TESTING_MODE=true` prevents API charges
-- **Error Handling** (`common/errors.py`) - Comprehensive ValidationError and ConfigurationError system
+- **Error Handling** (`common/errors.py`) - Comprehensive ValidationError and ConfigurationError system with fail-fast validation
 
 ### Passing Test Suites (64/64 tests passing - 100% pass rate)
 - **Platform Configuration Tests** (`tests/test_platform_config.py`) - 12/12 tests passing ✅
@@ -510,5 +513,8 @@ starter_prompt: |
 - ✅ **ARCHITECTURAL ELEGANCE**: Removed 67+ lines of unused complex templates, simplified to 3 focused templates
 - ✅ **MODERNIZED API**: Direct Google Sheets lookup eliminates OpenAI polling complexity in summarize_idea endpoint
 - ✅ **IMMEDIATE RESULTS**: Enhanced workflow stores complete analysis results synchronously, no async polling needed
+- ✅ **ENHANCED USER EXPERIENCE**: Custom GPT-ready instructions with detailed field descriptions and step-by-step guidance
+- ✅ **ROBUST ERROR HANDLING**: Removed silent fallback logic, system now fails fast with clear error messages for debugging
+- ✅ **CONFIGURATION VALIDATION**: Model types and budget tiers are explicitly validated, preventing silent misconfigurations
 
-The architecture successfully achieves true universality with **architectural perfection** - centralized prompt management, elegant simplification, and modern API design providing a robust foundation for unlimited agent type deployment through pure configuration.
+The architecture successfully achieves true universality with **production-ready reliability** - centralized prompt management, enhanced user experience, robust error handling, and modern API design providing a rock-solid foundation for unlimited agent type deployment through pure configuration.
