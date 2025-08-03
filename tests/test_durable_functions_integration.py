@@ -77,105 +77,111 @@ class TestDurableFunctionsOrchestration:
         assert "spreadsheet_id" in input_data
         assert "research_plan" in input_data
     
-    @patch('common.agent_service.AnalysisService')
-    @patch('common.durable_orchestrator.DurableOrchestrator')
-    def test_execute_complete_workflow_activity(self, mock_orchestrator_class, mock_service_class):
+    def test_execute_complete_workflow_activity(self):
         """Test the complete workflow activity function."""
         if not DURABLE_FUNCTIONS_AVAILABLE:
             pytest.skip("Durable Functions components not available")
         
-        # Setup mocks
-        mock_service = Mock()
-        mock_service._update_spreadsheet_record_with_results = Mock()
-        mock_service_class.return_value = mock_service
-        
-        mock_orchestrator = Mock()
-        mock_orchestrator.complete_remaining_workflow.return_value = {
-            "final_result": {"Analysis_Result": "Test analysis completed"}
-        }
-        mock_orchestrator_class.return_value = mock_orchestrator
-        
-        # Test input
-        workflow_input = {
-            "job_id": "test_job_456",
-            "user_input": {"Idea_Overview": "Test workflow"},
-            "budget_tier": "premium",
-            "spreadsheet_id": "test_sheet",
-            "research_plan": {"tier": "premium", "research_calls": 4}
-        }
-        
-        # Execute the activity
-        result = execute_complete_workflow(workflow_input)
-        
-        # Verify the result
-        assert result["status"] == "completed"
-        assert result["job_id"] == "test_job_456"
-        assert "message" in result
-        
-        # Verify the mocks were called correctly
-        mock_service_class.assert_called_once_with("test_sheet")
-        mock_orchestrator_class.assert_called_once()
-        mock_orchestrator.complete_remaining_workflow.assert_called_once()
-        mock_service._update_spreadsheet_record_with_results.assert_called_once()
+        # Mock the imports at the orchestrator module level
+        with patch('orchestrator.AnalysisService') as mock_service_class, \
+             patch('orchestrator.DurableOrchestrator') as mock_orchestrator_class:
+            
+            # Setup mocks
+            mock_service = Mock()
+            mock_service._update_spreadsheet_record_with_results = Mock()
+            mock_service_class.return_value = mock_service
+            
+            mock_orchestrator = Mock()
+            mock_orchestrator.complete_remaining_workflow.return_value = {
+                "final_result": {"Analysis_Result": "Test analysis completed"}
+            }
+            mock_orchestrator_class.return_value = mock_orchestrator
+            
+            # Test input
+            workflow_input = {
+                "job_id": "test_job_456",
+                "user_input": {"Idea_Overview": "Test workflow"},
+                "budget_tier": "premium",
+                "spreadsheet_id": "test_sheet",
+                "research_plan": {"tier": "premium", "research_calls": 4}
+            }
+            
+            # Execute the activity
+            result = execute_complete_workflow(workflow_input)
+            
+            # Verify the result
+            assert result["status"] == "completed"
+            assert result["job_id"] == "test_job_456"
+            assert "message" in result
+            
+            # Verify the mocks were called correctly
+            mock_service_class.assert_called_once_with("test_sheet")
+            mock_orchestrator_class.assert_called_once()
+            mock_orchestrator.complete_remaining_workflow.assert_called_once()
+            mock_service._update_spreadsheet_record_with_results.assert_called_once()
     
-    @patch('common.agent_service.AnalysisService')
-    @patch('common.durable_orchestrator.DurableOrchestrator')
-    def test_workflow_activity_error_handling(self, mock_orchestrator_class, mock_service_class):
+    def test_workflow_activity_error_handling(self):
         """Test error handling in the workflow activity function."""
         if not DURABLE_FUNCTIONS_AVAILABLE:
             pytest.skip("Durable Functions components not available")
         
-        # Setup mocks to raise an exception
-        mock_service_class.side_effect = Exception("Service initialization failed")
-        
-        workflow_input = {
-            "job_id": "test_job_error",
-            "user_input": {"Idea_Overview": "Test error handling"},
-            "budget_tier": "basic",
-            "spreadsheet_id": "test_sheet",
-            "research_plan": {"tier": "basic", "research_calls": 0}
-        }
-        
-        # Execute the activity
-        result = execute_complete_workflow(workflow_input)
-        
-        # Verify error handling
-        assert result["status"] == "failed"
-        assert result["job_id"] == "test_job_error"
-        assert "error" in result
-        assert "Service initialization failed" in result["error"]
+        # Mock the imports at the orchestrator module level
+        with patch('orchestrator.AnalysisService') as mock_service_class, \
+             patch('orchestrator.DurableOrchestrator') as mock_orchestrator_class:
+            
+            # Setup mocks to raise an exception
+            mock_service_class.side_effect = Exception("Service initialization failed")
+            
+            workflow_input = {
+                "job_id": "test_job_error",
+                "user_input": {"Idea_Overview": "Test error handling"},
+                "budget_tier": "basic",
+                "spreadsheet_id": "test_sheet",
+                "research_plan": {"tier": "basic", "research_calls": 0}
+            }
+            
+            # Execute the activity
+            result = execute_complete_workflow(workflow_input)
+            
+            # Verify error handling
+            assert result["status"] == "failed"
+            assert result["job_id"] == "test_job_error"
+            assert "error" in result
+            assert "Service initialization failed" in result["error"]
     
-    @patch('common.agent_service.AnalysisService')
-    @patch('common.durable_orchestrator.DurableOrchestrator')
-    def test_workflow_no_final_result_handling(self, mock_orchestrator_class, mock_service_class):
+    def test_workflow_no_final_result_handling(self):
         """Test handling when workflow produces no final result."""
         if not DURABLE_FUNCTIONS_AVAILABLE:
             pytest.skip("Durable Functions components not available")
         
-        # Setup mocks
-        mock_service = Mock()
-        mock_service_class.return_value = mock_service
-        
-        mock_orchestrator = Mock()
-        # Return result without final_result key
-        mock_orchestrator.complete_remaining_workflow.return_value = {"status": "incomplete"}
-        mock_orchestrator_class.return_value = mock_orchestrator
-        
-        workflow_input = {
-            "job_id": "test_job_no_result",
-            "user_input": {"Idea_Overview": "Test no result"},
-            "budget_tier": "standard",
-            "spreadsheet_id": "test_sheet",
-            "research_plan": {"tier": "standard", "research_calls": 2}
-        }
-        
-        # Execute the activity
-        result = execute_complete_workflow(workflow_input)
-        
-        # Verify handling of missing final result
-        assert result["status"] == "failed"
-        assert result["job_id"] == "test_job_no_result"
-        assert "No final result produced" in result["error"]
+        # Mock the imports at the orchestrator module level
+        with patch('orchestrator.AnalysisService') as mock_service_class, \
+             patch('orchestrator.DurableOrchestrator') as mock_orchestrator_class:
+            
+            # Setup mocks
+            mock_service = Mock()
+            mock_service_class.return_value = mock_service
+            
+            mock_orchestrator = Mock()
+            # Return result without final_result key
+            mock_orchestrator.complete_remaining_workflow.return_value = {"status": "incomplete"}
+            mock_orchestrator_class.return_value = mock_orchestrator
+            
+            workflow_input = {
+                "job_id": "test_job_no_result",
+                "user_input": {"Idea_Overview": "Test no result"},
+                "budget_tier": "standard",
+                "spreadsheet_id": "test_sheet",
+                "research_plan": {"tier": "standard", "research_calls": 2}
+            }
+            
+            # Execute the activity
+            result = execute_complete_workflow(workflow_input)
+            
+            # Verify handling of missing final result
+            assert result["status"] == "failed"
+            assert result["job_id"] == "test_job_no_result"
+            assert "No final result produced" in result["error"]
 
 
 class TestDurableFunctionsIntegration:
@@ -196,7 +202,7 @@ class TestDurableFunctionsIntegration:
         with patch('common.agent_service.AnalysisService.validate_user_input'), \
              patch('common.agent_service.AnalysisService.agent_config') as mock_config, \
              patch('common.agent_service.AnalysisService._create_spreadsheet_record'), \
-             patch('common.agent_service.DurableOrchestrator') as mock_orchestrator, \
+             patch('common.durable_orchestrator.DurableOrchestrator') as mock_orchestrator, \
              patch('common.agent_service.is_testing_mode', return_value=False):
             
             # Setup agent config mock
@@ -209,6 +215,8 @@ class TestDurableFunctionsIntegration:
             orchestrator_instance.execute_workflow.return_value = {
                 "job_id": "test_job_789",
                 "status": "processing",
+                "research_calls_made": 0,
+                "synthesis_calls_made": 0,
                 "research_plan": {"tier": "standard"}
             }
             mock_orchestrator.return_value = orchestrator_instance
@@ -245,7 +253,7 @@ class TestDurableFunctionsIntegration:
         with patch('common.agent_service.AnalysisService.validate_user_input'), \
              patch('common.agent_service.AnalysisService.agent_config') as mock_config, \
              patch('common.agent_service.AnalysisService._create_spreadsheet_record'), \
-             patch('common.agent_service.DurableOrchestrator') as mock_orchestrator, \
+             patch('common.durable_orchestrator.DurableOrchestrator') as mock_orchestrator, \
              patch('common.agent_service.is_testing_mode', return_value=False):
             
             # Setup mocks
@@ -257,6 +265,8 @@ class TestDurableFunctionsIntegration:
             orchestrator_instance.execute_workflow.return_value = {
                 "job_id": "test_job_fail",
                 "status": "processing",
+                "research_calls_made": 0,
+                "synthesis_calls_made": 0,
                 "research_plan": {"tier": "basic"}
             }
             mock_orchestrator.return_value = orchestrator_instance
