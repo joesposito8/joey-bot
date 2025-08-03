@@ -1,10 +1,10 @@
 import azure.functions as func
-import azure.durable_functions as df
+import azure.durable_functions as durablefunctions
 import logging
 import json
 from typing import Dict, Any
 
-def main(context):
+def main(context: durablefunctions.DurableOrchestrationContext):
     """
     Durable orchestrator that handles the complete analysis workflow.
     """
