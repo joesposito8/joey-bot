@@ -19,7 +19,12 @@ def analysis_orchestrator(context: df.DurableOrchestrationContext):
     try:
         # Get input data from the orchestrator context
         input_data = context.get_input()
-        logging.info(f"Orchestrator started with input: {input_data}")
+        logging.info(f"[DURABLE-ORCHESTRATOR] Orchestrator started with input: {input_data}")
+        
+        # Log to Application Insights for tracking
+        import json
+        logging.info(f"[DURABLE-ORCHESTRATOR] Starting orchestration for job: {input_data.get('job_id')}")
+        logging.info(f"[DURABLE-ORCHESTRATOR] Orchestration input data: {json.dumps(input_data, indent=2)}")
         
         job_id = input_data.get("job_id")
         user_input = input_data.get("user_input")
@@ -45,9 +50,11 @@ def analysis_orchestrator(context: df.DurableOrchestrationContext):
         }
         
         # Call the activity function to do the actual work
+        logging.info(f"[DURABLE-ORCHESTRATOR] Calling activity function for job: {job_id}")
         workflow_result = yield context.call_activity("execute_complete_workflow", activity_input)
         
-        logging.info(f"Workflow completed for job {job_id}: {workflow_result.get('status')}")
+        logging.info(f"[DURABLE-ORCHESTRATOR] Activity function completed for job {job_id}: {workflow_result.get('status')}")
+        logging.info(f"[DURABLE-ORCHESTRATOR] Final workflow result: {workflow_result}")
         return workflow_result
         
     except Exception as e:
@@ -71,7 +78,8 @@ def execute_complete_workflow(workflow_input: Dict[str, Any]) -> Dict[str, Any]:
         spreadsheet_id = workflow_input["spreadsheet_id"]
         research_plan = workflow_input["research_plan"]
         
-        logging.info(f"Starting complete workflow execution for job: {job_id}")
+        logging.info(f"[DURABLE-ACTIVITY] Starting complete workflow execution for job: {job_id}")
+        logging.info(f"[DURABLE-ACTIVITY] Activity received input: {workflow_input}")
         
         # Initialize the analysis service
         analysis_service = AnalysisService(spreadsheet_id)
