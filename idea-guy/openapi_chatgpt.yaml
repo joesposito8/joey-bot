@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: Joey Bot - Universal AI Agent Platform  
-  version: "2.1.0"
-  description: Intelligent multi-call architecture business analysis with VC-level evaluation and dynamic configuration system
+  version: "2.2.0"
+  description: Idea Guy, rates business ideas.
 
 servers:
   - url: https://idea-guy-func.azurewebsites.net
@@ -156,27 +156,39 @@ paths:
                     example: "standard"
                   message:
                     type: string
-                    example: "Analysis started with standard tier. Use job_id to poll /api/process_idea"
+                    example: "Analysis completed with standard tier. Results available via job_id"
                   next_endpoint:
                     type: string
-                    example: "/api/process_idea?id=job_abc123"
+                    example: "/api/summarize_idea?id=job_abc123"
+                  research_calls_made:
+                    type: integer
+                    description: Number of research calls executed
+                    example: 2
+                  synthesis_calls_made:
+                    type: integer
+                    description: Number of synthesis calls executed
+                    example: 1
+                  timestamp:
+                    type: string
+                    description: ISO timestamp of completion
+                    example: "2025-08-02T23:34:09.121Z"
 
-  /api/process_idea:
+  /api/summarize_idea:
     get:
-      operationId: processIdea
-      summary: Check analysis status and get results
-      description: Poll for analysis completion and retrieve results
+      operationId: summarizeIdea
+      summary: Get completed analysis results
+      description: Retrieve completed analysis results using job_id from execute_analysis.
       parameters:
         - name: id
           in: query
           required: true
-          description: Job ID from execute_analysis
+          description: Job ID returned from execute_analysis endpoint
           schema:
             type: string
             example: "job_abc123"
       responses:
         "200":
-          description: Analysis completed successfully
+          description: Analysis results retrieved successfully
           content:
             application/json:
               schema:
@@ -187,54 +199,29 @@ paths:
                     example: "completed"
                   job_id:
                     type: string
-                    example: "job_abc123"
-                  "Novelty_Rating":
+                    example: "resp_abc123def456"
+                  agent_type:
                     type: string
-                    example: "7"
-                  "Novelty_Rationale":
+                    description: Type of agent that performed the analysis
+                    example: "business_evaluation"
+                  timestamp:
                     type: string
-                    example: "Solid differentiation with AI personalization and dietary restriction focus. Market research shows 32M Americans have food allergies, creating clear demand for specialized meal kit services."
-                  "Feasibility_Rating":
-                    type: string
-                    example: "8"
-                  "Feasibility_Rationale":
-                    type: string
-                    example: "Strong technical feasibility. AI algorithms for nutritional analysis and recipe generation are achievable with current ML frameworks. Supply chain partnerships with ingredient suppliers present operational challenges but established meal kit logistics exist."
-                  "Effort_Rating":
-                    type: string
-                    example: "6"
-                  "Effort_Rationale":
-                    type: string
-                    example: "3-6 months with team of 3-4 developers"
-                  "Impact_Rating":
-                    type: string
-                    example: "8"
-                  "Impact_Rationale":
-                    type: string
-                    example: "Significant market opportunity. TAM: $150B global meal kit market. SAM: $15B dietary restriction segment. Target millennials/Gen Z show 80% willingness to pay premium for personalized health solutions."
-                  "Risk_Rating":
-                    type: string
-                    example: "5"
-                  "Risk_Rationale":
-                    type: string
-                    example: "Key risks include competitive pressure from HelloFresh/Blue Apron, supply chain complexity for dietary-specific ingredients, and customer acquisition costs in saturated market. Mitigation through strong differentiation and partnerships."
-                  "Overall_Rating":
-                    type: string
-                    example: "7"
-                  "Overall_Rationale":
-                    type: string
-                    example: "Promising investment opportunity with strong market fundamentals and clear differentiation. Solid execution capability balanced against competitive risks. Recommend proceeding with MVP development."
-                  "Analysis_Summary":
-                    type: string
-                    example: "AI-powered personalized meal kit service targeting dietary restrictions shows strong market opportunity in $15B segment. Differentiated positioning with solid technical feasibility, though competitive landscape requires careful execution. Overall rating 7/10 supports investment consideration."
-                  "Expected_Value_Analysis":
-                    type: string
-                    example: "Revenue projections: Year 1 $2M, Year 5 $15M. DCF NPV $85M at 12% discount. Expected IRR 35-45%. Comparable SaaS companies trade at 8-12x revenue multiples."
-                  "Potential_Improvements":
-                    type: string
-                    example: "Consider adding AI-powered personalization to differentiate"
-        "202":
-          description: Analysis still processing
+                    description: When the analysis was completed
+                    example: "2025-08-02T23:34:09.121Z"
+                additionalProperties:
+                  type: string
+                  description: Dynamic output fields based on agent configuration
+                example:
+                  "Novelty_Rating": "7/10"
+                  "Novelty_Rationale": "Solid differentiation with AI personalization and dietary restriction focus. Market research shows 32M Americans have food allergies, creating clear demand for specialized meal kit services."
+                  "Feasibility_Rating": "8/10"
+                  "Feasibility_Rationale": "Strong technical feasibility. AI algorithms for nutritional analysis and recipe generation are achievable with current ML frameworks."
+                  "Impact_Rating": "8/10"
+                  "Impact_Rationale": "Significant market opportunity in $15B dietary restriction segment."
+                  "Overall_Rating": "7/10"
+                  "Analysis_Summary": "Promising investment opportunity with strong market fundamentals and clear differentiation."
+        "404":
+          description: Analysis not found or incomplete
           content:
             application/json:
               schema:
@@ -242,10 +229,10 @@ paths:
                 properties:
                   status:
                     type: string
-                    example: "processing"
+                    example: "not_found"
                   message:
                     type: string
-                    example: "Analysis still being processed. Please try again later."
+                    example: "Analysis not found for job_id or analysis incomplete. Please check job_id or wait for analysis to complete."
                   job_id:
                     type: string
                     example: "job_abc123"
