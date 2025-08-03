@@ -11,9 +11,9 @@ platform:
 
   # Models used for different platform functions
   models:
-    planning: "gpt-o4-mini-high"    # Model for planning multi-call architecture
-    analysis: "gpt-4o-mini"                 # Model for individual analysis calls
-    synthesis: "gpt-4o-mini"                # Model for final synthesis
+    planning: "o4-mini"                 # Model for research topic planning
+    research: "o4-mini"                 # Model for individual research calls
+    synthesis: "o4-mini"                # Model for final synthesis
 
   # Universal budget tiers - same pricing and capabilities for ALL agents
   budget_tiers:

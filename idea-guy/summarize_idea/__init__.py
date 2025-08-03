@@ -39,10 +39,7 @@ def get_lazy_spreadsheet():
 
 
 def get_analysis_result_from_spreadsheet(job_id: str, service: AnalysisService) -> Dict[str, str] | None:
-    """Get completed analysis results from Google Sheets.
-    
-    Since DurableOrchestrator executes synchronously, results are directly written
-    to the spreadsheet. No OpenAI polling is needed.
+    """Get completed analysis results from spreadsheet.
     
     Args:
         job_id: Job identifier to find in spreadsheet
@@ -80,46 +77,36 @@ def get_analysis_result_from_spreadsheet(job_id: str, service: AnalysisService) 
         # Structure: [ID, Time, Research_Plan, ...input_fields, ...output_fields]
         input_fields_count = len(service.agent_config.schema.input_fields)
         output_start_col_0based = 3 + input_fields_count  # 0-based index where output fields start
-        output_fields_count = len(service.agent_config.schema.output_fields)
         
-        # Check if we have enough columns for output fields
-        if len(row_values) < output_start_col_0based + output_fields_count:
-            logging.info(f"Analysis not complete yet - missing output data. Row has {len(row_values)} columns, need {output_start_col_0based + output_fields_count}")
-            return None
-        
-        # Extract output field values
+        # Extract output field values - return None if any are missing/empty (analysis incomplete)
         result = {}
         for i, field in enumerate(service.agent_config.schema.output_fields):
             col_index = output_start_col_0based + i  # 0-based indexing
             if col_index < len(row_values):
                 value = row_values[col_index].strip()
-                if value:  # Only include non-empty values
+                if value:  # Non-empty value found
                     result[field.name] = value
                 else:
-                    logging.info(f"Output field {field.name} is empty - analysis may not be complete")
+                    # Empty output field - analysis not complete
+                    logging.info(f"Analysis still processing - field '{field.name}' is empty")
                     return None
             else:
-                logging.info(f"Output field {field.name} missing - analysis not complete")
+                # Column doesn't exist yet - analysis not complete
+                logging.info(f"Analysis still processing - field '{field.name}' missing")
                 return None
         
-        # If we have all output fields populated, analysis is complete
-        if len(result) == len(service.agent_config.schema.output_fields):
-            logging.info(f"Found complete analysis results for job {job_id}")
-            
-            # Also extract research plan if available
-            if len(row_values) > RESEARCH_PLAN_COLUMN_INDEX:
-                research_plan_str = row_values[RESEARCH_PLAN_COLUMN_INDEX].strip()
-                if research_plan_str:
-                    try:
-                        research_plan = json.loads(research_plan_str)
-                        result["research_plan"] = research_plan
-                    except json.JSONDecodeError:
-                        logging.warning(f"Could not parse research plan JSON for job {job_id}")
-            
-            return result
-        else:
-            logging.info(f"Analysis incomplete - only {len(result)} of {len(service.agent_config.schema.output_fields)} output fields populated")
-            return None
+        # Include research plan if available
+        if len(row_values) > RESEARCH_PLAN_COLUMN_INDEX:
+            research_plan_str = row_values[RESEARCH_PLAN_COLUMN_INDEX].strip()
+            if research_plan_str:
+                try:
+                    research_plan = json.loads(research_plan_str)
+                    result["research_plan"] = research_plan
+                except json.JSONDecodeError:
+                    logging.warning(f"Could not parse research plan JSON for job {job_id}")
+        
+        logging.info(f"Analysis complete for job {job_id} with {len(result)} fields")
+        return result
             
     except Exception as e:
         logging.error(f"Error reading analysis results from spreadsheet for job {job_id}: {str(e)}")
@@ -213,15 +200,16 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             )
 
         if result is None:
-            # Analysis is not ready yet or job not found
+            # Analysis is not ready yet or job not found - provide helpful message for polling
             response_data = {
                 "status": "processing",
-                "message": "The analysis is still being processed or job ID not found. Please try again later.",
+                "message": "Analysis is still in progress. Please check back in a few minutes.",
                 "job_id": job_id,
+                "estimated_completion": "2-5 minutes",
                 "timestamp": datetime.datetime.now().isoformat(),
             }
             
-            logging.info(f"Job {job_id} not ready or not found")
+            logging.info(f"Job {job_id} still processing")
             return build_json_response(response_data, 202)
 
         # Analysis is ready

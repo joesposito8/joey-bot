@@ -195,29 +195,57 @@ class AnalysisService:
             logging.warning("Running in testing mode - creating mock job")
             return self._create_mock_job(user_input, budget_tier)
 
-        # Execute research→synthesis workflow using DurableOrchestrator
+        # Execute research→synthesis workflow using DurableOrchestrator with fast return
         from .durable_orchestrator import DurableOrchestrator
+        import threading
         
         orchestrator = DurableOrchestrator(self.agent_config)
-        workflow_result = orchestrator.execute_workflow(user_input, budget_tier)
         
-        analysis_job_id = workflow_result["job_id"]
-        logging.info(f"Created DurableOrchestrator job: {analysis_job_id}")
+        # Get initial workflow result with research plan only (fast return for Custom GPT timeout)
+        initial_result = orchestrator.execute_workflow(user_input, budget_tier, fast_return=True)
+        
+        analysis_job_id = initial_result["job_id"]
+        logging.info(f"Created DurableOrchestrator job with fast return: {analysis_job_id}")
 
-        # Create spreadsheet record with the OpenAI job ID
+        # Create initial spreadsheet record with research plan only
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         try:
-            # Include research plan and final results in spreadsheet record
-            research_plan = workflow_result.get("research_plan", {})
-            final_result = workflow_result.get("final_result", {})
-            self._create_spreadsheet_record(analysis_job_id, timestamp, user_input, research_plan, final_result)
-            logging.info(
-                f"Created complete spreadsheet record with job ID: {analysis_job_id}"
-            )
+            # Create record with research plan, no final results yet
+            research_plan = initial_result.get("research_plan", {})
+            self._create_spreadsheet_record(analysis_job_id, timestamp, user_input, research_plan, None)
+            logging.info(f"Created initial spreadsheet record with job ID: {analysis_job_id}")
         except Exception as e:
             logging.error(f"Failed to create spreadsheet record: {str(e)}")
             raise ValidationError(f"Failed to create spreadsheet record: {str(e)}")
+
+        # Start background thread to complete research and synthesis
+        def complete_background_processing():
+            try:
+                logging.info(f"Starting background processing for job: {analysis_job_id}")
+                final_result = orchestrator.complete_remaining_workflow(
+                    analysis_job_id, research_plan, user_input
+                )
+                
+                # Update spreadsheet record with final results
+                if final_result.get("final_result"):
+                    self._update_spreadsheet_record_with_results(
+                        analysis_job_id, final_result["final_result"]
+                    )
+                    logging.info(f"Updated spreadsheet with final results for job: {analysis_job_id}")
+                else:
+                    logging.error(f"Background processing failed for job: {analysis_job_id}")
+                    
+            except Exception as e:
+                logging.error(f"Background processing exception for job {analysis_job_id}: {str(e)}")
+
+        # Start background processing (non-blocking)
+        background_thread = threading.Thread(target=complete_background_processing)
+        background_thread.daemon = True  # Thread dies when main process dies
+        background_thread.start()
+        
+        # Set workflow_result to initial_result for the response
+        workflow_result = initial_result
 
         # Validate workflow result has required fields instead of using silent defaults
         if "status" not in workflow_result:
@@ -283,6 +311,43 @@ class AnalysisService:
         except Exception as e:
             logging.error(f"Error creating spreadsheet record: {str(e)}")
             raise ValidationError(f"Failed to create spreadsheet record: {str(e)}")
+    
+    def _update_spreadsheet_record_with_results(
+        self, job_id: str, final_result: Dict[str, Any]
+    ) -> None:
+        """Update existing spreadsheet record with final analysis results.
+        
+        Args:
+            job_id: Unique job identifier to find the row
+            final_result: Final analysis results to add to output columns
+        """
+        try:
+            worksheet = self.spreadsheet.get_worksheet(0)
+            
+            # Find the row with this job_id (in column A)
+            cell = worksheet.find(job_id)
+            if not cell:
+                logging.error(f"Could not find spreadsheet row for job_id: {job_id}")
+                return
+            
+            row_num = cell.row
+            logging.info(f"Updating spreadsheet row {row_num} with final results for job: {job_id}")
+            
+            # Calculate where output columns start
+            input_fields_count = len(self.agent_config.schema.input_fields)
+            output_start_col = 3 + input_fields_count + 1  # +1 because gspread is 1-indexed
+            
+            # Update each output field column with final results
+            for i, field in enumerate(self.agent_config.schema.output_fields):
+                col_num = output_start_col + i
+                value = final_result.get(field.name, "")
+                worksheet.update_cell(row_num, col_num, str(value))
+                
+            logging.info(f"Successfully updated {len(self.agent_config.schema.output_fields)} output fields for job: {job_id}")
+            
+        except Exception as e:
+            logging.error(f"Error updating spreadsheet record for job {job_id}: {str(e)}")
+            # Don't raise exception here since this is background processing
 
     def _estimate_usage_for_tier(self, tier_config: BudgetTierConfig) -> Dict[str, Any]:
         """Estimate token usage based on tier configuration.
