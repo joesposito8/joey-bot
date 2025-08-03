@@ -149,38 +149,3 @@ def orchestrator_http_start(req: func.HttpRequest, client) -> func.HttpResponse:
         logging.error(f"Failed to start orchestration: {str(e)}")
         return build_error_response(f"Failed to start analysis: {str(e)}", 500)
 
-
-# This is the main function for the Azure Functions runtime
-def main(req: func.HttpRequest, starter: str) -> func.HttpResponse:
-    """
-    Legacy main function for compatibility with existing function.json
-    """
-    try:
-        # Create durable client using the starter string
-        client = df.DurableOrchestrationClient(starter)
-        
-        # Parse the request body
-        try:
-            req_body = req.get_json()
-        except ValueError:
-            return build_error_response("Invalid JSON in request body", 400)
-            
-        if not req_body:
-            return build_error_response("Request body is required", 400)
-        
-        # Start the orchestrator
-        instance_id = client.start_new("analysis_orchestrator", None, req_body)
-        
-        logging.info(f"Started orchestration with instance ID: {instance_id}")
-        
-        # Return success response with instance ID
-        return build_json_response({
-            "id": instance_id,
-            "statusQueryGetUri": f"{req.url.replace(req.url.split('/')[-1], '')}status/{instance_id}",
-            "sendEventPostUri": f"{req.url.replace(req.url.split('/')[-1], '')}raise-event/{instance_id}",
-            "terminatePostUri": f"{req.url.replace(req.url.split('/')[-1], '')}terminate/{instance_id}",
-        })
-        
-    except Exception as e:
-        logging.error(f"Failed to start orchestration: {str(e)}")
-        return build_error_response(f"Failed to start analysis: {str(e)}", 500)

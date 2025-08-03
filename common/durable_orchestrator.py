@@ -299,109 +299,117 @@ class DurableOrchestrator:
                 "error": True,
             }
 
-    def execute_workflow(
-        self, user_input: Dict[str, Any], budget_tier: str, fast_return: bool = False
+    def create_initial_workflow_response(
+        self, user_input: Dict[str, Any], budget_tier: str
     ) -> Dict[str, Any]:
-        """Execute research→synthesis workflow with optional fast return.
+        """Create initial workflow response with research plan for fast return.
 
         Args:
             user_input: User's input data
             budget_tier: Selected budget tier
-            fast_return: If True, return after research planning only (for Custom GPT timeout)
 
         Returns:
-            Workflow execution result with job ID and status
+            Initial workflow response with job ID and research plan
         """
         try:
             # Create research plan (always done first)
             research_plan = self.create_research_plan(user_input, budget_tier)
             
-            # Generate job ID
-            job_id = f"resp_{uuid.uuid4().hex}" if fast_return else f"durable_{uuid.uuid4()}"
-
-            # If fast return requested, return immediately with research plan
-            if fast_return:
-                return {
-                    "job_id": job_id,
-                    "status": "processing",
-                    "research_calls_made": 0,
-                    "synthesis_calls_made": 0,
-                    "research_plan": research_plan,
-                    "final_result": None
-                }
-
-            # Execute complete workflow synchronously
-            research_results = []
-            for topic in research_plan["research_topics"]:
-                result = self.execute_research_call(topic, user_input)
-                research_results.append(result)
-                logging.info(f"Completed research: {topic}")
-
-            # Execute synthesis with ALL research results
-            synthesis_result = self.execute_synthesis_call(research_results, user_input)
+            # Generate job ID for tracking
+            job_id = f"durable_{uuid.uuid4().hex}"
 
             return {
                 "job_id": job_id,
-                "status": "completed",
-                "research_calls_made": len(research_results),
-                "synthesis_calls_made": 1,
+                "status": "processing",
+                "research_calls_made": 0,
+                "synthesis_calls_made": 0,
                 "research_plan": research_plan,
-                "final_result": synthesis_result,
+                "final_result": None
             }
 
         except Exception as e:
-            logging.error(f"Workflow execution failed: {str(e)}")
-            job_id = f"failed_{uuid.uuid4().hex}" if fast_return else f"failed_{uuid.uuid4()}"
+            logging.error(f"Initial workflow creation failed: {str(e)}")
+            job_id = f"failed_{uuid.uuid4().hex}"
             return {
                 "job_id": job_id,
                 "status": "failed",
                 "error": str(e),
                 "research_calls_made": 0,
                 "synthesis_calls_made": 0,
-                "research_plan": research_plan if 'research_plan' in locals() else None
+                "research_plan": None
             }
-    
+
     def complete_remaining_workflow(
         self, job_id: str, research_plan: Dict[str, Any], user_input: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Complete research and synthesis phases after fast return.
-
+        """Complete the remaining workflow (research + synthesis) for a job.
+        
+        This method executes the full research→synthesis workflow that was
+        started by create_initial_workflow_response().
+        
         Args:
-            job_id: Job ID for tracking
-            research_plan: Research plan from fast return phase
+            job_id: Job identifier for tracking
+            research_plan: Research plan created during fast return
             user_input: Original user input data
-
+            
         Returns:
-            Complete workflow result with final_result
+            Complete workflow result with final analysis
         """
+        logging.info(f"[DURABLE-WORKFLOW] Starting remaining workflow for job: {job_id}")
+        logging.info(f"[DURABLE-WORKFLOW] Research plan: {research_plan}")
+        
         try:
+            # Extract research topics from the plan
+            research_topics = research_plan.get("research_topics", [])
+            logging.info(f"[DURABLE-WORKFLOW] Found {len(research_topics)} research topics")
+            
             # Execute all research calls sequentially
             research_results = []
-            for topic in research_plan["research_topics"]:
-                result = self.execute_research_call(topic, user_input)
-                research_results.append(result)
-                logging.info(f"Completed research: {topic}")
-
-            # Execute synthesis with ALL research results
-            synthesis_result = self.execute_synthesis_call(research_results, user_input)
-
-            return {
-                "job_id": job_id,
-                "status": "completed",
-                "research_calls_made": len(research_results),
-                "synthesis_calls_made": 1,
-                "research_plan": research_plan,
-                "final_result": synthesis_result,
-            }
-
+            for i, topic in enumerate(research_topics):
+                logging.info(f"[DURABLE-WORKFLOW] Executing research call {i+1}/{len(research_topics)}: {topic}")
+                try:
+                    research_result = self.execute_research_call(topic, user_input)
+                    research_results.append(research_result)
+                    logging.info(f"[DURABLE-WORKFLOW] Completed research call {i+1}: {research_result.research_topic}")
+                except Exception as e:
+                    logging.error(f"[DURABLE-WORKFLOW] Research call {i+1} failed: {str(e)}")
+                    # Continue with other research calls rather than failing completely
+                    continue
+            
+            logging.info(f"[DURABLE-WORKFLOW] Completed {len(research_results)} research calls successfully")
+            
+            # Execute synthesis call with all research results
+            if research_results:
+                logging.info(f"[DURABLE-WORKFLOW] Starting synthesis with {len(research_results)} research results")
+                final_result = self.execute_synthesis_call(research_results, user_input)
+                logging.info(f"[DURABLE-WORKFLOW] Synthesis completed successfully")
+                
+                return {
+                    "status": "completed",
+                    "job_id": job_id,
+                    "research_calls_made": len(research_results),
+                    "synthesis_calls_made": 1,
+                    "final_result": final_result,
+                    "research_plan": research_plan
+                }
+            else:
+                logging.error(f"[DURABLE-WORKFLOW] No research results available for synthesis")
+                return {
+                    "status": "failed",
+                    "job_id": job_id,
+                    "error": "No research results available for synthesis",
+                    "research_calls_made": 0,
+                    "synthesis_calls_made": 0,
+                    "final_result": None
+                }
+                
         except Exception as e:
-            logging.error(f"Background workflow completion failed for {job_id}: {str(e)}")
+            logging.error(f"[DURABLE-WORKFLOW] Complete workflow failed for job {job_id}: {str(e)}")
             return {
-                "job_id": job_id,
                 "status": "failed",
+                "job_id": job_id,
                 "error": str(e),
-                "research_calls_made": 0,
+                "research_calls_made": len(research_results) if 'research_results' in locals() else 0,
                 "synthesis_calls_made": 0,
-                "research_plan": research_plan,
                 "final_result": None
             }

@@ -3,6 +3,8 @@
 import datetime
 import logging
 import uuid
+import os
+import requests
 from typing import Dict, Any
 
 from common import get_openai_client, get_google_sheets_client, get_spreadsheet
@@ -195,13 +197,13 @@ class AnalysisService:
             logging.warning("Running in testing mode - creating mock job")
             return self._create_mock_job(user_input, budget_tier)
 
-        # Execute research→synthesis workflow using DurableOrchestrator with fast return
+        # Create initial workflow response using DurableOrchestrator
         from .durable_orchestrator import DurableOrchestrator
         
         orchestrator = DurableOrchestrator(self.agent_config)
         
         # Get initial workflow result with research plan only (fast return for Custom GPT timeout)
-        initial_result = orchestrator.execute_workflow(user_input, budget_tier, fast_return=True)
+        initial_result = orchestrator.create_initial_workflow_response(user_input, budget_tier)
         
         analysis_job_id = initial_result["job_id"]
         logging.info(f"Created DurableOrchestrator job with fast return: {analysis_job_id}")
@@ -221,8 +223,46 @@ class AnalysisService:
         # Start Durable Functions orchestration for reliable background processing
         logging.info(f"=== STARTING DURABLE FUNCTIONS ORCHESTRATION FOR JOB {analysis_job_id} ===")
         
-        # TODO: Implement proper Durable Functions orchestration call
-        logging.info(f"Durable Functions orchestration will handle background processing for job {analysis_job_id}")
+        try:
+            # Prepare orchestration input data
+            orchestration_input = {
+                "job_id": analysis_job_id,
+                "user_input": user_input,
+                "budget_tier": budget_tier,
+                "spreadsheet_id": self.spreadsheet_id,
+                "research_plan": research_plan
+            }
+            
+            # Start the durable orchestration using HTTP client
+            
+            # Get orchestrator endpoint - use production Azure Functions URL by default
+            base_url = os.environ.get('AZURE_FUNCTIONS_BASE_URL', 'http://localhost:7071')
+            orchestrator_url = f"{base_url}/api/orchestrator"
+            
+            logging.info(f"[DURABLE-START] Calling orchestrator at: {orchestrator_url}")
+            logging.info(f"[DURABLE-START] Orchestration input: {orchestration_input}")
+            
+            # Make async HTTP call to start orchestration
+            response = requests.post(
+                orchestrator_url,
+                json=orchestration_input,
+                timeout=30  # 30 second timeout for starting orchestration
+            )
+            
+            if response.status_code in [200, 202]:
+                orchestration_response = response.json()
+                instance_id = orchestration_response.get('id')
+                logging.info(f"[DURABLE-START] Successfully started orchestration: {instance_id}")
+                logging.info(f"[DURABLE-START] Orchestration response: {orchestration_response}")
+            else:
+                logging.error(f"[DURABLE-START] Failed to start orchestration: HTTP {response.status_code}")
+                logging.error(f"[DURABLE-START] Response body: {response.text}")
+                # Don't fail the request - just log the error and continue with fast return
+                
+        except Exception as e:
+            logging.error(f"[DURABLE-START] Exception starting orchestration: {str(e)}")
+            # Don't fail the request - just log the error and continue with fast return
+            
         logging.info(f"=== RETURNING QUICK RESPONSE TO AVOID CUSTOM GPT TIMEOUT ===")
         
         # Set workflow_result to initial_result for the response
