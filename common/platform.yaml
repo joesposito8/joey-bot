@@ -96,7 +96,7 @@ platform:
       - Combine all findings into the exact JSON format specified above
       - Each field must be thoroughly addressed based on the specialized research findings
       - Reference specific findings from the research above in your analysis
-      - Ensure consistency across all research dimensions
+      - Ensure consistency across all research dimensions. Only output a number for a rating, like "5".
       - Provide specific, actionable insights for each required field
       - Return ONLY the JSON object, no additional text
       

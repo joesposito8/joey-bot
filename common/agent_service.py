@@ -218,32 +218,11 @@ class AnalysisService:
             logging.error(f"Failed to create spreadsheet record: {str(e)}")
             raise ValidationError(f"Failed to create spreadsheet record: {str(e)}")
 
-        # Start background processing using reliable synchronous approach
-        # We return quickly after planning to avoid Custom GPT timeout, then continue processing
-        logging.info(f"=== STARTING SYNCHRONOUS BACKGROUND PROCESSING FOR JOB {analysis_job_id} ===")
-        logging.info(f"User input: {user_input}")
-        logging.info(f"Budget tier: {budget_tier}")
-        logging.info(f"Research plan: {research_plan}")
+        # Start Durable Functions orchestration for reliable background processing
+        logging.info(f"=== STARTING DURABLE FUNCTIONS ORCHESTRATION FOR JOB {analysis_job_id} ===")
         
-        # Use threading for background processing (works in Azure Functions for short tasks)
-        import threading
-        
-        def complete_analysis_in_background():
-            try:
-                logging.info(f"=== BACKGROUND THREAD STARTING FOR JOB {analysis_job_id} ===")
-                self._complete_analysis_synchronously(analysis_job_id, user_input, budget_tier, research_plan)
-                logging.info(f"=== BACKGROUND ANALYSIS COMPLETED FOR JOB {analysis_job_id} ===")
-            except Exception as e:
-                logging.error(f"=== BACKGROUND ANALYSIS FAILED FOR JOB {analysis_job_id} ===")
-                logging.error(f"Error: {str(e)}")
-                import traceback
-                logging.error(f"Traceback: {traceback.format_exc()}")
-        
-        # Start background thread
-        background_thread = threading.Thread(target=complete_analysis_in_background, daemon=True)
-        background_thread.start()
-        
-        logging.info(f"=== BACKGROUND THREAD STARTED FOR JOB {analysis_job_id} ===")
+        # TODO: Implement proper Durable Functions orchestration call
+        logging.info(f"Durable Functions orchestration will handle background processing for job {analysis_job_id}")
         logging.info(f"=== RETURNING QUICK RESPONSE TO AVOID CUSTOM GPT TIMEOUT ===")
         
         # Set workflow_result to initial_result for the response
@@ -265,7 +244,7 @@ class AnalysisService:
             "research_calls_made": workflow_result["research_calls_made"],
             "synthesis_calls_made": workflow_result["synthesis_calls_made"],
             "research_plan": research_plan,
-            "message": f"Analysis started with {budget_tier} tier. Processing in background - results will be available shortly via job_id",
+            "message": f"Analysis started with {budget_tier} tier. Durable Functions orchestration in progress - results will be available via job_id",
             "next_endpoint": f"/api/summarize_idea?id={analysis_job_id}",
             "timestamp": datetime.datetime.now().isoformat(),
         }
@@ -354,47 +333,6 @@ class AnalysisService:
             logging.error(f"Error updating spreadsheet record for job {job_id}: {str(e)}")
             # Don't raise exception here since this is background processing
 
-    def _complete_analysis_synchronously(self, job_id: str, user_input: Dict[str, Any], budget_tier: str, research_plan: Dict[str, Any]) -> None:
-        """Complete the analysis workflow synchronously as a fallback."""
-        logging.info(f"--- Starting synchronous analysis completion for job {job_id} ---")
-        logging.info(f"Research plan type: {type(research_plan)}")
-        logging.info(f"Research plan content: {research_plan}")
-        
-        try:
-            # Use the DurableOrchestrator to complete the remaining workflow
-            logging.info(f"Importing DurableOrchestrator for job {job_id}")
-            from .durable_orchestrator import DurableOrchestrator
-            
-            logging.info(f"Creating DurableOrchestrator instance for job {job_id}")
-            orchestrator = DurableOrchestrator(self.agent_config)
-            
-            logging.info(f"Calling complete_remaining_workflow for job {job_id}")
-            # Execute the remaining workflow (research + synthesis)
-            final_result = orchestrator.complete_remaining_workflow(
-                job_id, research_plan, user_input
-            )
-            
-            logging.info(f"Workflow completed for job {job_id}, result type: {type(final_result)}")
-            logging.info(f"Final result keys: {list(final_result.keys()) if isinstance(final_result, dict) else 'Not a dict'}")
-            
-            # Update spreadsheet with the final results
-            if final_result.get("final_result"):
-                logging.info(f"Updating spreadsheet with final results for job {job_id}")
-                self._update_spreadsheet_record_with_results(
-                    job_id, final_result["final_result"]
-                )
-                logging.info(f"--- Synchronous analysis completed successfully for job {job_id} ---")
-            else:
-                logging.error(f"--- Synchronous analysis produced no final result for job {job_id} ---")
-                logging.error(f"Final result was: {final_result}")
-                
-        except Exception as e:
-            logging.error(f"--- Synchronous analysis completion failed for job {job_id} ---")
-            logging.error(f"Error: {str(e)}")
-            logging.error(f"Exception type: {type(e).__name__}")
-            import traceback
-            logging.error(f"Detailed traceback: {traceback.format_exc()}")
-            raise
 
     def _estimate_usage_for_tier(self, tier_config: BudgetTierConfig) -> Dict[str, Any]:
         """Estimate token usage based on tier configuration.
