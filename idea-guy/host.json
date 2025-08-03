@@ -1,35 +1,18 @@
 {
-  "version": "2.0",
+  "version": "1.0",
+  "durableTask": {
+    "hubName": "JoeyBotTaskHub",
+    "azureStorageConnectionStringName": "AzureWebJobsStorage",
+    "traceInputsAndOutputs": true,
+    "logReplayEvents": true
+  },
   "logging": {
-    "applicationInsights": {
-      "samplingSettings": {
-        "isEnabled": true,
-        "excludedTypes": "Request"
-      }
-    },
     "logLevel": {
       "default": "Information",
       "Host.Triggers.DurableTask": "Information",
       "DurableTask.Core": "Information",
       "DurableTask.AzureStorage": "Information",
-      "DurableTask.Framework": "Information",
-      "Host.Results": "Information",
-      "Function": "Information",
-      "Host.Aggregator": "Information"
-    }
-  },
-  "extensionBundle": {
-    "id": "Microsoft.Azure.Functions.ExtensionBundle",
-    "version": "[4.*, 5.0.0)"
-  },
-  "extensions": {
-    "durableTask": {
-      "hubName": "JoeyBotTaskHub",
-      "storageProvider": {
-        "connectionStringName": "AzureWebJobsStorage"
-      },
-      "traceInputsAndOutputs": true,
-      "logReplayEvents": true
+      "Function": "Information"
     }
   }
 }
