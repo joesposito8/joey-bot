@@ -66,7 +66,7 @@ def analysis_orchestrator(context: df.DurableOrchestrationContext):
         }
 
 
-def execute_complete_workflow(workflow_input: Dict[str, Any]) -> Dict[str, Any]:
+async def execute_complete_workflow(workflow_input: Dict[str, Any]) -> Dict[str, Any]:
     """
     Activity function that executes the complete research and synthesis workflow.
     """
@@ -87,7 +87,7 @@ def execute_complete_workflow(workflow_input: Dict[str, Any]) -> Dict[str, Any]:
         orchestrator = DurableOrchestrator(analysis_service.agent_config)
         
         # Execute the remaining workflow (research + synthesis)
-        final_result = orchestrator.complete_remaining_workflow(
+        final_result = await orchestrator.complete_remaining_workflow(
             job_id, research_plan, user_input
         )
         

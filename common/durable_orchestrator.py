@@ -178,7 +178,7 @@ class DurableOrchestrator:
             logging.error(f"Research planning failed: {str(e)}")
             raise RuntimeError(f"Failed to generate research topics: {str(e)}")
 
-    def execute_research_call(
+    async def execute_research_call(
         self, research_topic: str, user_input: Dict[str, Any]
     ) -> ResearchOutput:
         """Execute single research call using universal analysis_call template + LangChain.
@@ -214,7 +214,7 @@ class DurableOrchestrator:
         try:
             # Execute LangChain call
             message = HumanMessage(content=research_prompt)
-            response = self.langchain_client.invoke([message])
+            response = await self.langchain_client.ainvoke([message])
 
             # Parse structured output
             parser = get_research_output_parser()
@@ -230,7 +230,7 @@ class DurableOrchestrator:
                 f"Research call failed for '{research_topic}': {str(e)}. This indicates a system issue that needs immediate attention."
             )
 
-    def execute_synthesis_call(
+    async def execute_synthesis_call(
         self, research_results: List[ResearchOutput], user_input: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Execute synthesis call combining ALL research results using Jinja2 templates.
@@ -339,7 +339,7 @@ class DurableOrchestrator:
                 "research_plan": None
             }
 
-    def complete_remaining_workflow(
+    async def complete_remaining_workflow(
         self, job_id: str, research_plan: Dict[str, Any], user_input: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Complete the remaining workflow (research + synthesis) for a job.
@@ -368,7 +368,7 @@ class DurableOrchestrator:
             for i, topic in enumerate(research_topics):
                 logging.info(f"[DURABLE-WORKFLOW] Executing research call {i+1}/{len(research_topics)}: {topic}")
                 try:
-                    research_result = self.execute_research_call(topic, user_input)
+                    research_result = await self.execute_research_call(topic, user_input)
                     research_results.append(research_result)
                     logging.info(f"[DURABLE-WORKFLOW] Completed research call {i+1}: {research_result.research_topic}")
                 except Exception as e:
@@ -381,7 +381,7 @@ class DurableOrchestrator:
             # Execute synthesis call with all research results
             if research_results:
                 logging.info(f"[DURABLE-WORKFLOW] Starting synthesis with {len(research_results)} research results")
-                final_result = self.execute_synthesis_call(research_results, user_input)
+                final_result = await self.execute_synthesis_call(research_results, user_input)
                 logging.info(f"[DURABLE-WORKFLOW] Synthesis completed successfully")
                 
                 return {
