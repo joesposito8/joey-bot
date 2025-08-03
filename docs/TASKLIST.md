@@ -134,6 +134,30 @@
 
 ### Integration & Production Deployment
 
+#### Critical Azure Functions Background Processing Fix
+- [x] **IMPLEMENT fast-return polling system** - Added threading-based background processing for 45-second Custom GPT timeout (PARTIAL SOLUTION)
+- [x] **MODIFY DurableOrchestrator** - Added fast_return parameter and complete_remaining_workflow() method
+- [x] **UPDATE AnalysisService** - Added background threading and spreadsheet update methods  
+- [x] **ENHANCE summarize_idea endpoint** - Added processing vs completed state handling
+- [ ] **🔥 CRITICAL: REPLACE threading with Azure Durable Functions** - Current threading approach fails in Azure Functions due to execution context termination
+- [ ] **ADD azure-functions-durable dependency** - Required for proper background processing
+- [ ] **CREATE Durable Functions orchestrator pattern** - Convert workflow to orchestrator + activity functions
+- [ ] **REMOVE all threading code** - Replace with Azure-native async processing
+<!-- Updated from commit 589c6b3 -->
+
+#### Model Configuration Updates  
+- [x] **FIX model naming alignment** - Updated planning/research/synthesis model references for semantic consistency
+- [x] **CORRECT model configuration path** - Fixed FullAgentConfig.get_model() to access platform.models correctly
+- [x] **UPDATE platform.yaml models** - Aligned model names with workflow phases
+<!-- Updated from commits 50bb4f8, 5ec75ce, 61db11e -->
+
+#### Fallback Logic & Error Handling Improvements
+- [x] **REMOVE problematic fallback logic** - Eliminated silent failures that masked configuration errors
+- [x] **IMPLEMENT fail-fast error handling** - Added explicit validation instead of silent defaults
+- [x] **UPDATE model validation** - Model access now raises ValidationError for unknown types
+- [x] **ENHANCE budget tier validation** - Removed silent empty list fallbacks
+<!-- Updated from commit 145a696 -->
+
 #### Azure Functions Migration to Durable Functions
 - [ ] **DEPLOY Durable Functions**: Replace current Azure Functions with orchestrator pattern
 - [ ] **CONFIGURE function scaling**: Ensure rate-limit compliance with sequential execution  
@@ -172,10 +196,12 @@
 2. **🔥 CRITICAL**: ~~CENTRALIZE all prompts in platform.yaml and clean up legacy templates~~ ✅ COMPLETED  
 3. **🔥 CRITICAL**: ~~RENAME process_idea → summarize_idea with direct Google Sheets lookup~~ ✅ COMPLETED
 4. **🔥 CRITICAL**: ~~AUDIT and remove duplicate/unused components throughout codebase~~ ✅ COMPLETED
-5. **🔥 CRITICAL**: **ADD agent parameter support to all Azure Functions endpoints** - Enable universal endpoint architecture
-6. **⚡ HIGH**: **UPDATE openapi_chatgpt.yaml schema** - Support agent parameters for Custom GPT integration
-7. **⚡ HIGH**: **CREATE second agent type (HR evaluation)** - Prove universality through pure configuration
-8. **🔧 MEDIUM**: **INTEGRATE cost tracking and web search capabilities** - Production optimization
+5. **🔥 CRITICAL**: ~~IMPLEMENT fast-return polling system for Custom GPT timeout~~ ✅ COMPLETED (needs Azure Durable Functions replacement)
+6. **🚨 URGENT**: **REPLACE threading with Azure Durable Functions** - Fix unreliable background processing in Azure Functions
+7. **🔥 CRITICAL**: **ADD agent parameter support to all Azure Functions endpoints** - Enable universal endpoint architecture
+8. **⚡ HIGH**: **UPDATE openapi_chatgpt.yaml schema** - Support agent parameters for Custom GPT integration
+9. **⚡ HIGH**: **CREATE second agent type (HR evaluation)** - Prove universality through pure configuration
+10. **🔧 MEDIUM**: **INTEGRATE cost tracking and web search capabilities** - Production optimization
 
 ## ARCHITECTURE EVOLUTION PLAN
 

@@ -2,6 +2,7 @@ annotated-types==0.7.0
 anyio==4.9.0
 async-timeout==4.0.3
 azure-functions==1.23.0
+azure-functions-durable==1.2.8
 black==25.1.0
 blinker==1.9.0
 cachetools==5.5.2

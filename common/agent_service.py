@@ -197,7 +197,6 @@ class AnalysisService:
 
         # Execute research→synthesis workflow using DurableOrchestrator with fast return
         from .durable_orchestrator import DurableOrchestrator
-        import threading
         
         orchestrator = DurableOrchestrator(self.agent_config)
         
@@ -219,30 +218,43 @@ class AnalysisService:
             logging.error(f"Failed to create spreadsheet record: {str(e)}")
             raise ValidationError(f"Failed to create spreadsheet record: {str(e)}")
 
-        # Start background thread to complete research and synthesis
-        def complete_background_processing():
-            try:
-                logging.info(f"Starting background processing for job: {analysis_job_id}")
-                final_result = orchestrator.complete_remaining_workflow(
-                    analysis_job_id, research_plan, user_input
-                )
+        # Start Durable Functions orchestration for background processing
+        # This replaces the threading approach which doesn't work reliably in Azure Functions
+        try:
+            import requests
+            import os
+            
+            # Prepare orchestration input data
+            orchestration_input = {
+                "job_id": analysis_job_id,
+                "user_input": user_input,
+                "budget_tier": budget_tier,
+                "spreadsheet_id": self.spreadsheet_id,
+                "research_plan": research_plan
+            }
+            
+            # Get the base URL for the current Azure Functions app
+            # In local development, this will be localhost:7071
+            # In production, this will be the Azure Functions app URL
+            base_url = os.getenv("AZURE_FUNCTIONS_BASE_URL", "http://localhost:7071")
+            orchestrator_url = f"{base_url}/api/orchestrator"
+            
+            # Start the durable orchestration asynchronously
+            response = requests.post(
+                orchestrator_url,
+                json=orchestration_input,
+                timeout=30  # Short timeout since we don't wait for completion
+            )
+            
+            if response.status_code in [200, 202]:
+                orchestration_data = response.json()
+                logging.info(f"Started durable orchestration for job {analysis_job_id}: {orchestration_data.get('id')}")
+            else:
+                logging.error(f"Failed to start orchestration: {response.status_code} - {response.text}")
                 
-                # Update spreadsheet record with final results
-                if final_result.get("final_result"):
-                    self._update_spreadsheet_record_with_results(
-                        analysis_job_id, final_result["final_result"]
-                    )
-                    logging.info(f"Updated spreadsheet with final results for job: {analysis_job_id}")
-                else:
-                    logging.error(f"Background processing failed for job: {analysis_job_id}")
-                    
-            except Exception as e:
-                logging.error(f"Background processing exception for job {analysis_job_id}: {str(e)}")
-
-        # Start background processing (non-blocking)
-        background_thread = threading.Thread(target=complete_background_processing)
-        background_thread.daemon = True  # Thread dies when main process dies
-        background_thread.start()
+        except Exception as e:
+            logging.error(f"Failed to start durable orchestration for job {analysis_job_id}: {str(e)}")
+            # Continue execution - the job will remain in 'processing' state and user can retry
         
         # Set workflow_result to initial_result for the response
         workflow_result = initial_result
@@ -281,10 +293,13 @@ class AnalysisService:
             final_result: Optional final analysis results from DurableOrchestrator
         """
         try:
+            logging.info(f"Getting spreadsheet worksheet for job {job_id}")
             worksheet = self.spreadsheet.get_worksheet(0)
+            logging.info(f"Got worksheet, creating row data for job {job_id}")
 
             # Create row with job ID, timestamp, research plan, and input data
             row_data = [job_id, timestamp]
+            logging.info(f"Base row data created: {row_data[:2]}")
             
             # Add research plan as third column (JSON string)
             if research_plan:

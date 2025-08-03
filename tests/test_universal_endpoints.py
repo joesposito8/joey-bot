@@ -75,14 +75,14 @@ class TestUniversalEndpointArchitecture:
                 from get_instructions import main as get_instructions
                 from get_pricepoints import main as get_pricepoints
                 from execute_analysis import main as execute_analysis
-                from process_idea import main as process_idea
+                from summarize_idea import main as summarize_idea  # Updated endpoint name
                 from read_sheet import main as read_sheet
                 
                 # Verify all functions are callable
                 assert callable(get_instructions)
                 assert callable(get_pricepoints)
                 assert callable(execute_analysis)
-                assert callable(process_idea)
+                assert callable(summarize_idea)  # Updated endpoint name
                 assert callable(read_sheet)
             
         except ImportError as e:

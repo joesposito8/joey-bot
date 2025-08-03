@@ -202,10 +202,11 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         if result is None:
             # Analysis is not ready yet or job not found - provide helpful message for polling
             response_data = {
-                "status": "processing",
-                "message": "Analysis is still in progress. Please check back in a few minutes.",
+                "status": "processing", 
+                "message": "Analysis is being processed by the orchestration workflow. Please check back in a few minutes.",
                 "job_id": job_id,
                 "estimated_completion": "2-5 minutes",
+                "workflow_info": "Research and synthesis are running in the background via Azure Durable Functions",
                 "timestamp": datetime.datetime.now().isoformat(),
             }
             
