@@ -8,11 +8,28 @@
       }
     },
     "logLevel": {
-      "Host.Triggers.DurableTask": "Information"
+      "default": "Information",
+      "Host.Triggers.DurableTask": "Information",
+      "DurableTask.Core": "Information",
+      "DurableTask.AzureStorage": "Information",
+      "DurableTask.Framework": "Information",
+      "Host.Results": "Information",
+      "Function": "Information",
+      "Host.Aggregator": "Information"
     }
   },
   "extensionBundle": {
     "id": "Microsoft.Azure.Functions.ExtensionBundle",
     "version": "[4.*, 5.0.0)"
+  },
+  "extensions": {
+    "durableTask": {
+      "hubName": "JoeyBotTaskHub",
+      "storageProvider": {
+        "connectionStringName": "AzureWebJobsStorage"
+      },
+      "traceInputsAndOutputs": true,
+      "logReplayEvents": true
+    }
   }
 }

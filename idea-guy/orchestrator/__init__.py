@@ -125,35 +125,57 @@ def main(req: func.HttpRequest, starter: str) -> func.HttpResponse:
     HTTP trigger function that starts the durable orchestration.
     """
     try:
+        logging.info(f"[DURABLE-HTTP] Received orchestrator request: {req.method} {req.url}")
+        
         # Create durable client using the starter string
         client = df.DurableOrchestrationClient(starter)
+        logging.info(f"[DURABLE-HTTP] Created durable client successfully")
         
         # Parse the request body
-        try:
+        try:            
             req_body = req.get_json()
-        except ValueError:
+            logging.info(f"[DURABLE-HTTP] Parsed request body: {req_body}")
+        except ValueError as e:
+            logging.error(f"[DURABLE-HTTP] JSON parsing error: {str(e)}")
             return build_error_response("Invalid JSON in request body", 400)
             
         if not req_body:
+            logging.error("[DURABLE-HTTP] Empty request body")
             return build_error_response("Request body is required", 400)
         
-        logging.info(f"[DURABLE-HTTP] Starting orchestration with input: {req_body}")
+        logging.info(f"[DURABLE-HTTP] Starting orchestration with function name: {ORCHESTRATOR_FUNCTION_NAME}")
+        logging.info(f"[DURABLE-HTTP] Orchestration input: {json.dumps(req_body, indent=2)}")
         
         # Start the orchestrator
-        instance_id = client.start_new(ORCHESTRATOR_FUNCTION_NAME, None, req_body)
+        try:
+            instance_id = client.start_new(ORCHESTRATOR_FUNCTION_NAME, None, req_body)
+            logging.info(f"[DURABLE-HTTP] ✅ Successfully started orchestration with instance ID: {instance_id}")
+        except Exception as e:
+            logging.error(f"[DURABLE-HTTP] ❌ Failed to start orchestration: {str(e)}")
+            logging.error(f"[DURABLE-HTTP] Orchestrator function name attempted: {ORCHESTRATOR_FUNCTION_NAME}")
+            raise
         
-        logging.info(f"[DURABLE-HTTP] Started orchestration with instance ID: {instance_id}")
+        # Get status check URL for debugging
+        base_url = str(req.url).replace('/api/orchestrator', '')
+        status_url = f"{base_url}/runtime/webhooks/durabletask/instances/{instance_id}"
+        
+        logging.info(f"[DURABLE-HTTP] Status check URL: {status_url}")
         
         # Return success response with instance ID and management URLs
         return build_json_response({
             "id": instance_id,
-            "statusQueryGetUri": f"{req.url.replace(req.url.split('/')[-1], '')}status/{instance_id}",
-            "sendEventPostUri": f"{req.url.replace(req.url.split('/')[-1], '')}raise-event/{instance_id}",
-            "terminatePostUri": f"{req.url.replace(req.url.split('/')[-1], '')}terminate/{instance_id}",
-            "message": "Durable orchestration started successfully"
+            "statusQueryGetUri": status_url,
+            "sendEventPostUri": f"{base_url}/runtime/webhooks/durabletask/instances/{instance_id}/raiseEvent/{{eventName}}",
+            "terminatePostUri": f"{base_url}/runtime/webhooks/durabletask/instances/{instance_id}/terminate",
+            "message": "Durable orchestration started successfully",
+            "orchestrator_function": ORCHESTRATOR_FUNCTION_NAME,
+            "activity_function": ACTIVITY_FUNCTION_NAME
         })
         
     except Exception as e:
-        logging.error(f"[DURABLE-HTTP] Failed to start orchestration: {str(e)}")
+        logging.error(f"[DURABLE-HTTP] ❌ Failed to start orchestration: {str(e)}")
+        logging.error(f"[DURABLE-HTTP] Exception type: {type(e).__name__}")
+        import traceback
+        logging.error(f"[DURABLE-HTTP] Traceback: {traceback.format_exc()}")
         return build_error_response(f"Failed to start analysis: {str(e)}", 500)
 
