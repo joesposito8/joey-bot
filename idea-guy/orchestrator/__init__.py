@@ -8,10 +8,10 @@ from common.agent_service import AnalysisService
 from common.durable_orchestrator import DurableOrchestrator
 from common.http_utils import build_json_response, build_error_response
 
-# Create Durable Functions app
-app = df.DFApp(http_auth_level=func.AuthLevel.ANONYMOUS)
+# Register functions for Durable Functions runtime
+ORCHESTRATOR_FUNCTION_NAME = "analysis_orchestrator"
+ACTIVITY_FUNCTION_NAME = "execute_complete_workflow"
 
-@app.orchestration_trigger(context_name="context")
 def analysis_orchestrator(context: df.DurableOrchestrationContext):
     """
     Durable orchestrator that handles the complete analysis workflow.
@@ -51,7 +51,7 @@ def analysis_orchestrator(context: df.DurableOrchestrationContext):
         
         # Call the activity function to do the actual work
         logging.info(f"[DURABLE-ORCHESTRATOR] Calling activity function for job: {job_id}")
-        workflow_result = yield context.call_activity("execute_complete_workflow", activity_input)
+        workflow_result = yield context.call_activity(ACTIVITY_FUNCTION_NAME, activity_input)
         
         logging.info(f"[DURABLE-ORCHESTRATOR] Activity function completed for job {job_id}: {workflow_result.get('status')}")
         logging.info(f"[DURABLE-ORCHESTRATOR] Final workflow result: {workflow_result}")
@@ -66,7 +66,6 @@ def analysis_orchestrator(context: df.DurableOrchestrationContext):
         }
 
 
-@app.activity_trigger(input_name="workflow_input")
 def execute_complete_workflow(workflow_input: Dict[str, Any]) -> Dict[str, Any]:
     """
     Activity function that executes the complete research and synthesis workflow.
@@ -121,13 +120,14 @@ def execute_complete_workflow(workflow_input: Dict[str, Any]) -> Dict[str, Any]:
         }
 
 
-@app.route(route="orchestrator", auth_level=func.AuthLevel.ANONYMOUS)
-@app.durable_client_input(client_name="client")
-def orchestrator_http_start(req: func.HttpRequest, client) -> func.HttpResponse:
+def main(req: func.HttpRequest, starter: str) -> func.HttpResponse:
     """
     HTTP trigger function that starts the durable orchestration.
     """
     try:
+        # Create durable client using the starter string
+        client = df.DurableOrchestrationClient(starter)
+        
         # Parse the request body
         try:
             req_body = req.get_json()
@@ -137,15 +137,23 @@ def orchestrator_http_start(req: func.HttpRequest, client) -> func.HttpResponse:
         if not req_body:
             return build_error_response("Request body is required", 400)
         
+        logging.info(f"[DURABLE-HTTP] Starting orchestration with input: {req_body}")
+        
         # Start the orchestrator
-        instance_id = client.start_new("analysis_orchestrator", None, req_body)
+        instance_id = client.start_new(ORCHESTRATOR_FUNCTION_NAME, None, req_body)
         
-        logging.info(f"Started orchestration with instance ID: {instance_id}")
+        logging.info(f"[DURABLE-HTTP] Started orchestration with instance ID: {instance_id}")
         
-        # Return the instance management URLs
-        return client.create_check_status_response(req, instance_id)
+        # Return success response with instance ID and management URLs
+        return build_json_response({
+            "id": instance_id,
+            "statusQueryGetUri": f"{req.url.replace(req.url.split('/')[-1], '')}status/{instance_id}",
+            "sendEventPostUri": f"{req.url.replace(req.url.split('/')[-1], '')}raise-event/{instance_id}",
+            "terminatePostUri": f"{req.url.replace(req.url.split('/')[-1], '')}terminate/{instance_id}",
+            "message": "Durable orchestration started successfully"
+        })
         
     except Exception as e:
-        logging.error(f"Failed to start orchestration: {str(e)}")
+        logging.error(f"[DURABLE-HTTP] Failed to start orchestration: {str(e)}")
         return build_error_response(f"Failed to start analysis: {str(e)}", 500)
 
