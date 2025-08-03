@@ -120,7 +120,7 @@ async def execute_complete_workflow(workflow_input: Dict[str, Any]) -> Dict[str,
         }
 
 
-def main(req: func.HttpRequest, starter: str) -> func.HttpResponse:
+async def main(req: func.HttpRequest, starter: str) -> func.HttpResponse:
     """
     HTTP trigger function that starts the durable orchestration.
     """
@@ -148,7 +148,7 @@ def main(req: func.HttpRequest, starter: str) -> func.HttpResponse:
         
         # Start the orchestrator
         try:
-            instance_id = client.start_new(ORCHESTRATOR_FUNCTION_NAME, None, req_body)
+            instance_id = await client.start_new(ORCHESTRATOR_FUNCTION_NAME, None, req_body)
             logging.info(f"[DURABLE-HTTP] ✅ Successfully started orchestration with instance ID: {instance_id}")
         except Exception as e:
             logging.error(f"[DURABLE-HTTP] ❌ Failed to start orchestration: {str(e)}")
