@@ -4,7 +4,7 @@ import logging
 import json
 from typing import Dict, Any
 
-def main(context: df.DurableOrchestrationContext):
+def main(context):
     """
     Durable orchestrator that handles the complete analysis workflow.
     """

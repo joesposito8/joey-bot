@@ -5,7 +5,7 @@ from typing import Dict, Any
 from common.agent_service import AnalysisService
 from common.durable_orchestrator import DurableOrchestrator
 
-async def main(workflow_input: Dict[str, Any]) -> Dict[str, Any]:
+async def main(workflow_input):
     """
     Activity function that executes the complete research and synthesis workflow.
     """
