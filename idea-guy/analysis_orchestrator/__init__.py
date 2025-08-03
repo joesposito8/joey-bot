@@ -4,7 +4,7 @@ import logging
 import json
 from typing import Dict, Any
 
-def main(context: durablefunctions.DurableOrchestrationContext):
+def orchestrator_function(context: durablefunctions.DurableOrchestrationContext):
     """
     Durable orchestrator that handles the complete analysis workflow.
     """
@@ -55,3 +55,6 @@ def main(context: durablefunctions.DurableOrchestrationContext):
             "error": str(e),
             "job_id": input_data.get("job_id") if 'input_data' in locals() else None
         }
+
+# Create the main function using Durable Functions pattern
+main = durablefunctions.Orchestrator.create(orchestrator_function)
