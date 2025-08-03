@@ -137,7 +137,7 @@ class AnalysisService:
                     "max_cost": tier.price,
                     "estimated_cost": tier.price,
                     "model": self.agent_config.get_model(
-                        'analysis'
+                        'research'
                     ),  # Use unified model resolution
                     "description": tier.description,
                     "deliverables": tier.deliverables,

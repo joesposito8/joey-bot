@@ -43,7 +43,7 @@ class DurableOrchestrator:
         """Lazy-initialized LangChain ChatOpenAI client."""
         if self._langchain_client is None:
             self._langchain_client = ChatOpenAI(
-                model=self.agent_config.get_model('analysis'),
+                model=self.agent_config.get_model('research'),
                 temperature=0.1
             )
         return self._langchain_client
@@ -126,7 +126,7 @@ class DurableOrchestrator:
         try:
             # Use OpenAI to generate research plan
             response = self.openai_client.responses.create(
-                model=self.agent_config.get_model('analysis'),
+                model=self.agent_config.get_model('planning'),
                 input=[{"role": "user", "content": [{"type": "input_text", "text": planning_prompt}]}],
                 background=False,  # Synchronous for planning
                 reasoning={"summary": "auto"}
@@ -238,7 +238,7 @@ class DurableOrchestrator:
         try:
             # Use existing OpenAI client for synthesis (matches current system)
             response = self.openai_client.responses.create(
-                model=self.agent_config.get_model('analysis'),
+                model=self.agent_config.get_model('synthesis'),
                 input=[{"role": "user", "content": [{"type": "input_text", "text": synthesis_prompt}]}],
                 background=False,  # Synchronous for final result
                 tools=[{"type": "web_search_preview"}],

@@ -11,7 +11,7 @@ platform:
 
   # Models used for different platform functions
   models:
-    architecture_planning: "gpt-4o-mini"    # Model for planning multi-call architecture
+    planning: "gpt-o4-mini-high"    # Model for planning multi-call architecture
     analysis: "gpt-4o-mini"                 # Model for individual analysis calls
     synthesis: "gpt-4o-mini"                # Model for final synthesis
 
