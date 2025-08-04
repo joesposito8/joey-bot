@@ -5,6 +5,8 @@ import logging
 import uuid
 import os
 import requests
+import hashlib
+import json
 from typing import Dict, Any
 
 from common import get_openai_client, get_google_sheets_client, get_spreadsheet
@@ -159,6 +161,64 @@ class AnalysisService:
             "timestamp": datetime.datetime.now().isoformat(),
         }
 
+    def _generate_job_fingerprint(self, user_input: Dict[str, Any], budget_tier: str) -> str:
+        """Generate deterministic fingerprint for request deduplication.
+        
+        Args:
+            user_input: User's input data
+            budget_tier: Selected budget tier
+            
+        Returns:
+            16-character hex fingerprint for job identification
+        """
+        fingerprint_data = {
+            "user_input": user_input,
+            "budget_tier": budget_tier,
+            "agent_id": self.agent_config.definition.agent_id,
+            "spreadsheet_id": self.spreadsheet_id
+        }
+        content = json.dumps(fingerprint_data, sort_keys=True)
+        return hashlib.sha256(content.encode()).hexdigest()[:16]
+    
+    def _check_existing_job(self, job_fingerprint: str) -> Dict[str, Any]:
+        """Check if a job with this fingerprint already exists.
+        
+        Args:
+            job_fingerprint: Deterministic job fingerprint
+            
+        Returns:
+            Existing job data if found, None otherwise
+        """
+        try:
+            worksheet = self.spreadsheet.get_worksheet(0)
+            
+            # Look for existing job with same fingerprint
+            try:
+                cell = worksheet.find(f"fp_{job_fingerprint}")
+                if cell:
+                    row_num = cell.row
+                    # Get the actual job_id from the same row (column A should contain the real job_id)
+                    job_id_cell = worksheet.cell(row_num, 1)
+                    existing_job_id = job_id_cell.value
+                    
+                    logging.info(f"Found existing job with fingerprint {job_fingerprint}: {existing_job_id}")
+                    
+                    return {
+                        "job_id": existing_job_id,
+                        "status": "processing",  # Assume still processing
+                        "is_duplicate": True,
+                        "message": "Request already being processed - returning existing job ID"
+                    }
+            except Exception:
+                # No existing job found
+                pass
+                
+        except Exception as e:
+            logging.error(f"Error checking for existing job: {str(e)}")
+            # Continue with new job creation on error
+            
+        return None
+
     def create_analysis_job(
         self, user_input: Dict[str, Any], budget_tier: str
     ) -> Dict[str, Any]:
@@ -178,6 +238,15 @@ class AnalysisService:
 
         # Validate inputs
         self.validate_user_input(user_input)
+        
+        # Generate deterministic job fingerprint for deduplication
+        job_fingerprint = self._generate_job_fingerprint(user_input, budget_tier)
+        
+        # Check for existing job with same fingerprint
+        existing_job = self._check_existing_job(job_fingerprint)
+        if existing_job:
+            logging.info(f"Returning existing job {existing_job['job_id']} to prevent duplicate")
+            return existing_job
 
         # Find selected tier configuration from universal budget config
         tier_config = None
@@ -202,8 +271,11 @@ class AnalysisService:
         
         orchestrator = DurableOrchestrator(self.agent_config)
         
+        # Generate deterministic job ID using fingerprint instead of UUID
+        deterministic_job_id = f"fp_{job_fingerprint}"
+        
         # Get initial workflow result with research plan only (fast return for Custom GPT timeout)
-        initial_result = orchestrator.create_initial_workflow_response(user_input, budget_tier)
+        initial_result = orchestrator.create_initial_workflow_response(user_input, budget_tier, deterministic_job_id)
         
         analysis_job_id = initial_result["job_id"]
         logging.info(f"Created DurableOrchestrator job with fast return: {analysis_job_id}")
@@ -224,13 +296,14 @@ class AnalysisService:
         logging.info(f"=== STARTING DURABLE FUNCTIONS ORCHESTRATION FOR JOB {analysis_job_id} ===")
         
         try:
-            # Prepare orchestration input data
+            # Prepare orchestration input data with instance ID for deduplication
             orchestration_input = {
                 "job_id": analysis_job_id,
                 "user_input": user_input,
                 "budget_tier": budget_tier,
                 "spreadsheet_id": self.spreadsheet_id,
-                "research_plan": research_plan
+                "research_plan": research_plan,
+                "instance_id": analysis_job_id  # Use deterministic job ID as instance ID for deduplication
             }
             
             # Start the durable orchestration using HTTP client

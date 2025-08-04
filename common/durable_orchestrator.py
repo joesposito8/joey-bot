@@ -300,13 +300,14 @@ class DurableOrchestrator:
             }
 
     def create_initial_workflow_response(
-        self, user_input: Dict[str, Any], budget_tier: str
+        self, user_input: Dict[str, Any], budget_tier: str, job_id: str = None
     ) -> Dict[str, Any]:
         """Create initial workflow response with research plan for fast return.
 
         Args:
             user_input: User's input data
             budget_tier: Selected budget tier
+            job_id: Optional deterministic job ID for deduplication
 
         Returns:
             Initial workflow response with job ID and research plan
@@ -315,8 +316,9 @@ class DurableOrchestrator:
             # Create research plan (always done first)
             research_plan = self.create_research_plan(user_input, budget_tier)
             
-            # Generate job ID for tracking
-            job_id = f"durable_{uuid.uuid4().hex}"
+            # Use provided job ID or generate UUID fallback
+            if job_id is None:
+                job_id = f"durable_{uuid.uuid4().hex}"
 
             return {
                 "job_id": job_id,

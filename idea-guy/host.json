@@ -11,7 +11,12 @@
         "connectionStringName": "AzureWebJobsStorage"
       },
       "traceInputsAndOutputs": true,
-      "logReplayEvents": true
+      "logReplayEvents": true,
+      "maxConcurrentOrchestratorFunctions": 3,
+      "maxConcurrentActivityFunctions": 10
+    },
+    "http": {
+      "maxConcurrentRequests": 5
     }
   },
   "logging": {
