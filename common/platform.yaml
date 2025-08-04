@@ -63,84 +63,129 @@ platform:
     synthesis_call: |
       {{ agent_personality }}
       
-      You are synthesizing findings from multiple specialized research calls into a comprehensive final analysis.
-      
-      ## User's Original Request:
+      You are synthesizing comprehensive research findings into a definitive analysis.
+
+      ## Original Analysis Request:
       {% for key, value in user_input.items() %}
       **{{ key }}**: {{ value }}
       {% endfor %}
-      
-      ## Research Findings Summary:
+
+      ## Research Intelligence Gathered:
       {% for research in research_results %}
       
       ### Research Topic: {{ research.research_topic }}
-      **Summary**: {{ research.summary }}
+      
+      **Executive Summary**: {{ research.summary }}
+      
       **Key Findings**:
       {% for finding in research.key_findings %}
       - {{ finding }}
       {% endfor %}
-      **Confidence Level**: {{ research.confidence_level }}
+      
+      {% if research.supporting_evidence %}
+      **Supporting Evidence**:
+      {% for evidence in research.supporting_evidence %}
+      - {{ evidence }}
+      {% endfor %}
+      {% endif %}
+      
+      {% if research.implications %}
+      **Strategic Implications**:
+      {% for implication in research.implications %}
+      - {{ implication }}
+      {% endfor %}
+      {% endif %}
+      
+      **Research Confidence**: {{ research.confidence_level }}
+      {% if research.limitations %}**Research Limitations**: {{ research.limitations }}{% endif %}
+      
       ---
       {% endfor %}
+
+      ## Synthesis Requirements:
       
-      ## Analysis Requirements:
-      Please synthesize ALL the research findings above into a comprehensive analysis that addresses the user's request.
-      
-      REQUIRED JSON OUTPUT FORMAT:
+      **Your Task**: Integrate ALL research findings above into a comprehensive, authoritative analysis that directly addresses the user's request.
+
+      **Synthesis Approach**:
+      - Identify patterns and connections across all research dimensions
+      - Weigh evidence quality and confidence levels in your conclusions
+      - Address any conflicting findings or data gaps transparently
+      - Provide specific, actionable insights supported by the research
+      - Distinguish between high-confidence conclusions and areas requiring further investigation
+
+      **Required Output Format**:
       {{ json_schema }}
-      
-      FIELD DEFINITIONS:
+
+      **Field Requirements**:
       {{ field_definitions }}
-      
-      SYNTHESIS REQUIREMENTS:
-      - Combine all findings into the exact JSON format specified above
-      - Each field must be thoroughly addressed based on the specialized research findings
-      - Reference specific findings from the research above in your analysis
-      - Ensure consistency across all research dimensions. Only output a number for a rating, like "5".
-      - Provide specific, actionable insights for each required field
-      - Return ONLY the JSON object, no additional text
-      
-      Generate the complete analysis JSON now:
+
+      **Quality Standards**:
+      - Ground all conclusions in specific research findings referenced above
+      - Provide concrete evidence for ratings, assessments, and recommendations
+      - Acknowledge limitations where research confidence is low
+      - Ensure each output field is thoroughly addressed with research-backed insights
+      - Only output a number for a rating, like "5".
+
+      Generate your comprehensive analysis now:
 
     # Research topic planning prompt template - for DurableOrchestrator research topic generation
     research_planning: |
-      You are a research planning expert working with an AI analysis agent.
+      You are a research architecture expert designing a comprehensive analysis strategy.
 
-      ## Agent Expertise:
+      ## Agent Expertise & Context:
       {agent_personality}
 
-      ## User Request:
+      ## Analysis Request:
       {user_input_summary}
 
-      ## Task:
-      Based on the agent's expertise and the user's request, generate exactly {num_topics} specific, actionable research topics that will provide comprehensive analysis. The topics should be relevant to the agent's domain of expertise.
+      ## Research Architecture Task:
+      Design exactly {num_topics} research investigations that will provide comprehensive coverage for this analysis. Each research topic should explore a different dimension or perspective to ensure thorough analysis.
+
+      ## Research Design Principles:
+      - **Complementary Coverage**: Ensure topics cover different aspects without significant overlap
+      - **Progressive Depth**: Mix broad contextual research with specific detailed investigations  
+      - **Multiple Perspectives**: Include different stakeholder viewpoints, timeframes, or methodological approaches
+      - **Evidence Variety**: Combine quantitative data, qualitative insights, and expert perspectives where relevant
+      - **Strategic Focus**: Each topic should directly contribute to answering the user's core questions
 
       ## Output Format:
       Return ONLY a JSON array of exactly {num_topics} research topics as strings:
-      ["Research topic 1", "Research topic 2", ...]
+      ["Specific research question or focus area 1", "Specific research question or focus area 2", ...]
 
-      Each topic should be specific, actionable, and focused on gathering concrete insights relevant to the agent's field of expertise.
+      Each topic should be a clear, specific research question or focus area that will generate actionable insights for the analysis.
 
     # Research execution call template - for DurableOrchestrator individual research calls
     research_call: |
       {starter_prompt}
       
-      SPECIFIC FOCUS: {research_topic}
+      ## Research Assignment:
+      **Primary Focus**: {research_topic}
       
-      USER INPUT:
+      ## Context - User's Request:
       {formatted_user_input}
+
+      ## Research Instructions:
       
-      RESEARCH REQUIREMENTS:
-      Focus specifically on: {research_topic}
-      Provide detailed research with specific data, examples, and actionable insights.
-      Use recent market research and credible sources where applicable.
-      
-      IMPORTANT: Provide your research findings in this exact JSON format:
+      **Your Research Mission**: Conduct thorough investigation of the assigned topic, gathering specific insights, data points, and expert perspectives that will contribute to a comprehensive analysis.
+
+      **Research Approach**:
+      - Gather concrete evidence, statistics, examples, and case studies where available
+      - Identify key trends, patterns, and relationships relevant to the topic
+      - Consider multiple perspectives and potential counterarguments
+      - Assess reliability and recency of information sources
+      - Focus on actionable insights that inform decision-making
+
+      **Quality Standards**:
+      - Prioritize specific, verifiable information over general statements
+      - Include quantitative data with context and sources when possible
+      - Distinguish between established facts and expert opinions/predictions
+      - Note any significant limitations or gaps in available information
+      - Provide concrete examples and case studies to support findings
+
+      ## Required Output Format:
       {json_format_instructions}
 
-      Focus on gathering factual, relevant information about: {research_topic}
-      Include specific data points, statistics, or insights where possible.
-      Return ONLY the JSON object, no additional text.
+      **Research Execution**: Now conduct your focused research on "{research_topic}" and provide comprehensive findings in the exact JSON format specified above. Return ONLY the JSON object, no additional text.
 
     # User instructions template - for Custom GPT guidance on collecting user input
     user_instructions: |

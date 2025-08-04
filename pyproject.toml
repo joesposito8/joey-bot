@@ -23,4 +23,5 @@ markers = [
     "unit: Unit tests for individual components",
     "integration: Integration tests for end-to-end workflows", 
     "debug: Debug utilities and temporary tools",
+    "asyncio: Async test functions",
 ]
