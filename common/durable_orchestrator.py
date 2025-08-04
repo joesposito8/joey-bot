@@ -378,30 +378,23 @@ class DurableOrchestrator:
             
             logging.info(f"[DURABLE-WORKFLOW] Completed {len(research_results)} research calls successfully")
             
-            # Execute synthesis call with all research results
-            if research_results:
-                logging.info(f"[DURABLE-WORKFLOW] Starting synthesis with {len(research_results)} research results")
-                final_result = await self.execute_synthesis_call(research_results, user_input)
-                logging.info(f"[DURABLE-WORKFLOW] Synthesis completed successfully")
-                
-                return {
-                    "status": "completed",
-                    "job_id": job_id,
-                    "research_calls_made": len(research_results),
-                    "synthesis_calls_made": 1,
-                    "final_result": final_result,
-                    "research_plan": research_plan
-                }
-            else:
-                logging.error(f"[DURABLE-WORKFLOW] No research results available for synthesis")
-                return {
-                    "status": "failed",
-                    "job_id": job_id,
-                    "error": "No research results available for synthesis",
-                    "research_calls_made": 0,
-                    "synthesis_calls_made": 0,
-                    "final_result": None
-                }
+            # Execute synthesis call with all research results (even if empty for basic tier)
+            logging.info(f"[DURABLE-WORKFLOW] Starting synthesis with {len(research_results)} research results")
+            
+            if len(research_results) == 0:
+                logging.info(f"[DURABLE-WORKFLOW] Basic tier - running synthesis with user input only (no research)")
+            
+            final_result = await self.execute_synthesis_call(research_results, user_input)
+            logging.info(f"[DURABLE-WORKFLOW] Synthesis completed successfully")
+            
+            return {
+                "status": "completed",
+                "job_id": job_id,
+                "research_calls_made": len(research_results),
+                "synthesis_calls_made": 1,
+                "final_result": final_result,
+                "research_plan": research_plan
+            }
                 
         except Exception as e:
             logging.error(f"[DURABLE-WORKFLOW] Complete workflow failed for job {job_id}: {str(e)}")
