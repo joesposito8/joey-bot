@@ -10,7 +10,13 @@ from common.http_utils import build_json_response, build_error_response
 
 # Register functions for Durable Functions runtime - use directory names as function names
 ORCHESTRATOR_FUNCTION_NAME = "analysis_orchestrator"
-ACTIVITY_FUNCTION_NAME = "execute_complete_workflow"
+ACTIVITY_FUNCTIONS = [
+    "start_research_job", 
+    "check_job_status", 
+    "fetch_job_result", 
+    "start_synthesis_job", 
+    "update_spreadsheet"
+]
 
 
 
@@ -63,7 +69,7 @@ async def main(req: func.HttpRequest, starter: str) -> func.HttpResponse:
             "terminatePostUri": f"{base_url}/runtime/webhooks/durabletask/instances/{instance_id}/terminate",
             "message": "Durable orchestration started successfully",
             "orchestrator_function": ORCHESTRATOR_FUNCTION_NAME,
-            "activity_function": ACTIVITY_FUNCTION_NAME
+            "activity_functions": ACTIVITY_FUNCTIONS
         })
         
     except Exception as e:

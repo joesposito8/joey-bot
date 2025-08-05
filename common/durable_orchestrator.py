@@ -1,15 +1,11 @@
 """
-Durable Functions orchestrator for research→synthesis workflow.
-Replaces broken MultiCallArchitecture with sequential LangChain-based execution.
+Durable Functions orchestrator for async job polling workflow.
+Contains only the methods needed for async job management with OpenAI Deep Research API.
 """
 
 import logging
 import uuid
-import json
 from typing import Dict, List, Any, Optional
-
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage
 
 from .research_models import ResearchOutput, get_research_output_parser, get_json_list_parser, get_json_dict_parser
 from .http_utils import is_testing_mode
@@ -18,7 +14,7 @@ from common import get_openai_client
 
 
 class DurableOrchestrator:
-    """Orchestrates sequential research→synthesis workflow using LangChain and Jinja2."""
+    """Orchestrates async job polling workflow using OpenAI Deep Research API."""
 
     def __init__(self, agent_config):
         """Initialize orchestrator with agent configuration.
@@ -28,7 +24,6 @@ class DurableOrchestrator:
         """
         self.agent_config = agent_config
         self._openai_client = None
-        self._langchain_client = None
 
     @property
     def openai_client(self):
@@ -36,15 +31,6 @@ class DurableOrchestrator:
         if self._openai_client is None:
             self._openai_client = get_openai_client()
         return self._openai_client
-
-    @property
-    def langchain_client(self):
-        """Lazy-initialized LangChain ChatOpenAI client."""
-        if self._langchain_client is None:
-            self._langchain_client = ChatOpenAI(
-                model=self.agent_config.get_model('research'),
-            )
-        return self._langchain_client
 
     def create_research_plan(
         self, user_input: Dict[str, Any], budget_tier: str
@@ -175,20 +161,120 @@ class DurableOrchestrator:
             logging.error(f"Research planning failed: {str(e)}")
             raise RuntimeError(f"Failed to generate research topics: {str(e)}")
 
-    async def execute_research_call(
+    async def start_research_job(
         self, research_topic: str, user_input: Dict[str, Any]
-    ) -> ResearchOutput:
-        """Execute single research call using universal analysis_call template + LangChain.
-
+    ) -> Dict[str, Any]:
+        """Start an async research job using OpenAI Deep Research API.
+        
         Args:
             research_topic: Research topic to investigate
             user_input: Original user input for context
-
+            
         Returns:
-            Structured ResearchOutput from LangChain parsing
+            Dict with job_id and status for polling
         """
         if is_testing_mode():
-            # Return mock ResearchOutput for testing
+            import uuid
+            return {
+                "job_id": f"test_research_{uuid.uuid4().hex[:8]}",
+                "status": "started"
+            }
+        
+        # Use centralized research_call template from platform.yaml
+        research_prompt = prompt_manager.format_research_call_prompt(
+            starter_prompt=self.agent_config.definition.starter_prompt,
+            research_topic=research_topic,
+            user_input=user_input,
+            json_format_instructions=get_research_output_parser().get_format_instructions(),
+        )
+        
+        try:
+            # Start async research job with OpenAI Deep Research API
+            response = self.openai_client.responses.create(
+                model=self.agent_config.get_model('research'),
+                input=[
+                    {
+                        "role": "user",
+                        "content": [{"type": "input_text", "text": research_prompt}],
+                    }
+                ],
+                background=True,  # Async job - runs on OpenAI's servers
+                reasoning={"summary": "auto"},
+            )
+            
+            # Extract job ID from response
+            job_id = response.id  # OpenAI returns job ID for background tasks
+            logging.info(f"Started async research job {job_id} for topic: {research_topic}")
+            
+            return {
+                "job_id": job_id,
+                "status": "started",
+                "research_topic": research_topic
+            }
+            
+        except Exception as e:
+            logging.error(f"Failed to start research job for {research_topic}: {str(e)}")
+            raise RuntimeError(f"Failed to start research job for '{research_topic}': {str(e)}")
+
+    async def check_job_status(self, job_id: str) -> Dict[str, Any]:
+        """Check the status of an async job using OpenAI Deep Research API.
+        
+        Args:
+            job_id: Job ID to check
+            
+        Returns:
+            Dict with job_id, status, and ready_for_fetch flag
+        """
+        if is_testing_mode():
+            import random
+            if random.random() < 0.7:  # 70% chance job is done
+                return {
+                    "job_id": job_id,
+                    "status": "succeeded",
+                    "ready_for_fetch": True
+                }
+            else:
+                return {
+                    "job_id": job_id,
+                    "status": "running",
+                    "ready_for_fetch": False
+                }
+        
+        try:
+            # Check job status using OpenAI API
+            status_response = self.openai_client.responses.retrieve(job_id)
+            
+            status = status_response.status  # 'running', 'succeeded', 'failed'
+            ready_for_fetch = status == 'succeeded'
+            
+            logging.info(f"Job {job_id} status: {status}")
+            
+            return {
+                "job_id": job_id,
+                "status": status,
+                "ready_for_fetch": ready_for_fetch
+            }
+            
+        except Exception as e:
+            logging.error(f"Failed to check status for job {job_id}: {str(e)}")
+            return {
+                "job_id": job_id,
+                "status": "failed",
+                "ready_for_fetch": False,
+                "error": str(e)
+            }
+
+    async def fetch_research_result(self, job_id: str, research_topic: str) -> ResearchOutput:
+        """Fetch the result of a completed research job.
+        
+        Args:
+            job_id: Job ID to fetch
+            research_topic: Original research topic for context
+            
+        Returns:
+            Structured ResearchOutput from completed job
+        """
+        if is_testing_mode():
             return ResearchOutput(
                 research_topic=research_topic,
                 summary=f"Mock research summary for {research_topic}",
@@ -199,63 +285,56 @@ class DurableOrchestrator:
                 sources_consulted=["mock search", "test data"],
                 confidence_level="medium",
             )
-
-        # Use centralized research_call template from platform.yaml
-        research_prompt = prompt_manager.format_research_call_prompt(
-            starter_prompt=self.agent_config.definition.starter_prompt,
-            research_topic=research_topic,
-            user_input=user_input,
-            json_format_instructions=get_research_output_parser().get_format_instructions(),
-        )
-
+        
         try:
-            # Execute LangChain call
-            message = HumanMessage(content=research_prompt)
-            response = await self.langchain_client.ainvoke([message])
-
+            # Fetch completed job result
+            result_response = self.openai_client.responses.retrieve(job_id)
+            
+            if not hasattr(result_response, 'output') or not result_response.output:
+                raise ValueError(f"No output available for job {job_id}")
+            
+            response_text = result_response.output[-1].content[0].text
+            
             # Parse structured output with automatic JSON fixing
             parser = get_research_output_parser()
-            parsed_result = parser.parse(response.content)
-
-            logging.info(f"Completed research call for: {research_topic}")
+            parsed_result = parser.parse(response_text)
+            
+            logging.info(f"Successfully fetched research result for job: {job_id}")
             return parsed_result
-
+            
         except Exception as e:
-            logging.error(f"Research call failed for {research_topic}: {str(e)}")
-            # Don't mask failures with fake data - raise the error to fail fast
-            raise RuntimeError(
-                f"Research call failed for '{research_topic}': {str(e)}. This indicates a system issue that needs immediate attention."
-            )
+            logging.error(f"Failed to fetch result for job {job_id}: {str(e)}")
+            raise RuntimeError(f"Failed to fetch research result for job '{job_id}': {str(e)}")
 
-    async def execute_synthesis_call(
+    async def start_synthesis_job(
         self, research_results: List[ResearchOutput], user_input: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Execute synthesis call combining ALL research results using Jinja2 templates.
-
+        """Start an async synthesis job using OpenAI Deep Research API.
+        
         Args:
-            research_results: List of ALL ResearchOutput objects from research phase
+            research_results: List of completed research results
             user_input: Original user input data
-
+            
         Returns:
-            Final analysis result dictionary
+            Dict with job_id and status for polling
         """
         if is_testing_mode():
+            import uuid
             return {
-                "Analysis_Result": "Mock synthesis combining all research results",
-                "Overall_Rating": "8/10",
-                "research_sources": len(research_results),
+                "job_id": f"test_synthesis_{uuid.uuid4().hex[:8]}",
+                "status": "started"
             }
-
-        # Use existing universal synthesis_call template from platform.yaml via prompt_manager
+        
+        # Use existing universal synthesis_call template
         synthesis_prompt = prompt_manager.format_synthesis_call_prompt(
             research_results=research_results,
             user_input=user_input,
             agent_personality=self.agent_config.definition.starter_prompt,
             output_fields=self.agent_config.schema.output_fields,
         )
-
+        
         try:
-            # Use existing OpenAI client for synthesis (matches current system)
+            # Start async synthesis job
             response = self.openai_client.responses.create(
                 model=self.agent_config.get_model('synthesis'),
                 input=[
@@ -264,37 +343,65 @@ class DurableOrchestrator:
                         "content": [{"type": "input_text", "text": synthesis_prompt}],
                     }
                 ],
-                background=False,  # Synchronous for final result
+                background=True,  # Async job - runs on OpenAI's servers
                 tools=[{"type": "web_search_preview"}],
                 reasoning={"summary": "auto"},
             )
-
-            # Extract and parse response with automatic JSON fixing
-            if hasattr(response, 'output') and response.output:
-                response_text = response.output[-1].content[0].text
-
-                # Use robust JSON parser with automatic error correction
-                try:
-                    parser = get_json_dict_parser()
-                    result = parser.parse(response_text)
-                    result["synthesis_sources"] = len(research_results)
-                    return result
-                except Exception:
-                    # Fallback if parsing completely fails
-                    return {
-                        "Analysis_Result": response_text,
-                        "synthesis_sources": len(research_results),
-                    }
-            else:
-                raise ValueError("No output from synthesis call")
-
-        except Exception as e:
-            logging.error(f"Synthesis call failed: {str(e)}")
+            
+            job_id = response.id
+            logging.info(f"Started async synthesis job: {job_id}")
+            
             return {
-                "Analysis_Result": f"Synthesis failed: {str(e)}",
-                "synthesis_sources": len(research_results),
-                "error": True,
+                "job_id": job_id,
+                "status": "started"
             }
+            
+        except Exception as e:
+            logging.error(f"Failed to start synthesis job: {str(e)}")
+            raise RuntimeError(f"Failed to start synthesis job: {str(e)}")
+
+    async def fetch_synthesis_result(self, job_id: str) -> Dict[str, Any]:
+        """Fetch the result of a completed synthesis job.
+        
+        Args:
+            job_id: Job ID to fetch
+            
+        Returns:
+            Final analysis result dictionary
+        """
+        if is_testing_mode():
+            return {
+                "Analysis_Result": "Mock synthesis combining all research results",
+                "Overall_Rating": "8/10",
+                "synthesis_sources": 0,
+            }
+        
+        try:
+            # Fetch completed synthesis result
+            result_response = self.openai_client.responses.retrieve(job_id)
+            
+            if not hasattr(result_response, 'output') or not result_response.output:
+                raise ValueError(f"No synthesis output available for job {job_id}")
+            
+            response_text = result_response.output[-1].content[0].text
+            
+            # Use robust JSON parser with automatic error correction
+            try:
+                parser = get_json_dict_parser()
+                result = parser.parse(response_text)
+                logging.info(f"Successfully fetched synthesis result for job: {job_id}")
+                return result
+            except Exception:
+                # Fallback if parsing completely fails
+                logging.warning(f"Failed to parse synthesis result for job {job_id}, using fallback")
+                return {
+                    "Analysis_Result": response_text,
+                    "synthesis_sources": 0,
+                }
+                
+        except Exception as e:
+            logging.error(f"Failed to fetch synthesis result for job {job_id}: {str(e)}")
+            raise RuntimeError(f"Failed to fetch synthesis result for job '{job_id}': {str(e)}")
 
     def create_initial_workflow_response(
         self, user_input: Dict[str, Any], budget_tier: str, job_id: str = None
@@ -336,72 +443,4 @@ class DurableOrchestrator:
                 "research_calls_made": 0,
                 "synthesis_calls_made": 0,
                 "research_plan": None
-            }
-
-    async def complete_remaining_workflow(
-        self, job_id: str, research_plan: Dict[str, Any], user_input: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Complete the remaining workflow (research + synthesis) for a job.
-        
-        This method executes the full research→synthesis workflow that was
-        started by create_initial_workflow_response().
-        
-        Args:
-            job_id: Job identifier for tracking
-            research_plan: Research plan created during fast return
-            user_input: Original user input data
-            
-        Returns:
-            Complete workflow result with final analysis
-        """
-        logging.info(f"[DURABLE-WORKFLOW] Starting remaining workflow for job: {job_id}")
-        logging.info(f"[DURABLE-WORKFLOW] Research plan: {research_plan}")
-        
-        try:
-            # Extract research topics from the plan
-            research_topics = research_plan.get("research_topics", [])
-            logging.info(f"[DURABLE-WORKFLOW] Found {len(research_topics)} research topics")
-            
-            # Execute all research calls sequentially
-            research_results = []
-            for i, topic in enumerate(research_topics):
-                logging.info(f"[DURABLE-WORKFLOW] Executing research call {i+1}/{len(research_topics)}: {topic}")
-                try:
-                    research_result = await self.execute_research_call(topic, user_input)
-                    research_results.append(research_result)
-                    logging.info(f"[DURABLE-WORKFLOW] Completed research call {i+1}: {research_result.research_topic}")
-                except Exception as e:
-                    logging.error(f"[DURABLE-WORKFLOW] Research call {i+1} failed: {str(e)}")
-                    # Continue with other research calls rather than failing completely
-                    continue
-            
-            logging.info(f"[DURABLE-WORKFLOW] Completed {len(research_results)} research calls successfully")
-            
-            # Execute synthesis call with all research results (even if empty for basic tier)
-            logging.info(f"[DURABLE-WORKFLOW] Starting synthesis with {len(research_results)} research results")
-            
-            if len(research_results) == 0:
-                logging.info(f"[DURABLE-WORKFLOW] Basic tier - running synthesis with user input only (no research)")
-            
-            final_result = await self.execute_synthesis_call(research_results, user_input)
-            logging.info(f"[DURABLE-WORKFLOW] Synthesis completed successfully")
-            
-            return {
-                "status": "completed",
-                "job_id": job_id,
-                "research_calls_made": len(research_results),
-                "synthesis_calls_made": 1,
-                "final_result": final_result,
-                "research_plan": research_plan
-            }
-                
-        except Exception as e:
-            logging.error(f"[DURABLE-WORKFLOW] Complete workflow failed for job {job_id}: {str(e)}")
-            return {
-                "status": "failed",
-                "job_id": job_id,
-                "error": str(e),
-                "research_calls_made": len(research_results) if 'research_results' in locals() else 0,
-                "synthesis_calls_made": 0,
-                "final_result": None
             }
