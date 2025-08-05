@@ -5,7 +5,9 @@ Used in the research→synthesis workflow for structured JSON handoff.
 
 from typing import List, Dict, Any
 from pydantic import BaseModel, Field
-from langchain_core.output_parsers import PydanticOutputParser
+from langchain_core.output_parsers import PydanticOutputParser, JsonOutputParser
+from langchain.output_parsers import OutputFixingParser
+from langchain_openai import ChatOpenAI
 
 
 class ResearchOutput(BaseModel):
@@ -53,10 +55,72 @@ class ResearchOutput(BaseModel):
     )
 
 
-def get_research_output_parser() -> PydanticOutputParser[ResearchOutput]:
-    """Get configured LangChain parser for ResearchOutput model.
+# Cache parsers to avoid recreating them
+_research_parser = None
+_list_parser = None
+_dict_parser = None
+
+
+def _get_fixing_llm():
+    """Get LLM for OutputFixingParser with proper API key handling."""
+    import os
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY environment variable is required for OutputFixingParser")
+    
+    return ChatOpenAI(
+        model="gpt-4o-mini", 
+        temperature=0,
+        api_key=api_key
+    )
+
+
+def get_research_output_parser() -> OutputFixingParser:
+    """Get robust LangChain parser for ResearchOutput model with automatic JSON fixing.
 
     Returns:
-        PydanticOutputParser configured for ResearchOutput structured parsing
+        OutputFixingParser that wraps PydanticOutputParser with automatic retry/fix capability
     """
-    return PydanticOutputParser(pydantic_object=ResearchOutput)
+    global _research_parser
+    if _research_parser is None:
+        base_parser = PydanticOutputParser(pydantic_object=ResearchOutput)
+        _research_parser = OutputFixingParser.from_llm(
+            parser=base_parser,
+            llm=_get_fixing_llm(),
+            max_retries=2
+        )
+    return _research_parser
+
+
+def get_json_list_parser() -> OutputFixingParser:
+    """Get robust JSON list parser for research planning topics.
+    
+    Returns:
+        OutputFixingParser that handles JSON arrays with automatic error correction
+    """
+    global _list_parser
+    if _list_parser is None:
+        base_parser = JsonOutputParser()
+        _list_parser = OutputFixingParser.from_llm(
+            parser=base_parser,
+            llm=_get_fixing_llm(),
+            max_retries=2
+        )
+    return _list_parser
+
+
+def get_json_dict_parser() -> OutputFixingParser:
+    """Get robust JSON dict parser for synthesis results.
+    
+    Returns:
+        OutputFixingParser that handles JSON objects with automatic error correction
+    """
+    global _dict_parser
+    if _dict_parser is None:
+        base_parser = JsonOutputParser()
+        _dict_parser = OutputFixingParser.from_llm(
+            parser=base_parser,
+            llm=_get_fixing_llm(),
+            max_retries=2
+        )
+    return _dict_parser

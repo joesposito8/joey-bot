@@ -11,11 +11,10 @@ from typing import Dict, List, Any, Optional
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage
 
-from .research_models import ResearchOutput, get_research_output_parser
+from .research_models import ResearchOutput, get_research_output_parser, get_json_list_parser, get_json_dict_parser
 from .http_utils import is_testing_mode
 from .prompt_manager import prompt_manager
 from common import get_openai_client
-from common.utils import clean_json_response
 
 
 class DurableOrchestrator:
@@ -142,15 +141,13 @@ class DurableOrchestrator:
                 reasoning={"summary": "auto"},
             )
 
-            # Parse response
+            # Parse response with automatic JSON fixing
             if hasattr(response, 'output') and response.output:
                 response_text = response.output[-1].content[0].text.strip()
 
-                # Clean JSON response using centralized utility
-                cleaned_response = clean_json_response(response_text)
-
-                # Parse JSON array
-                topics = json.loads(cleaned_response)
+                # Use robust JSON parser with automatic error correction
+                parser = get_json_list_parser()
+                topics = parser.parse(response_text)
 
                 if isinstance(topics, list) and len(topics) == num_topics:
                     logging.info(
@@ -216,7 +213,7 @@ class DurableOrchestrator:
             message = HumanMessage(content=research_prompt)
             response = await self.langchain_client.ainvoke([message])
 
-            # Parse structured output
+            # Parse structured output with automatic JSON fixing
             parser = get_research_output_parser()
             parsed_result = parser.parse(response.content)
 
@@ -272,18 +269,18 @@ class DurableOrchestrator:
                 reasoning={"summary": "auto"},
             )
 
-            # Extract response text
+            # Extract and parse response with automatic JSON fixing
             if hasattr(response, 'output') and response.output:
                 response_text = response.output[-1].content[0].text
 
-                # Try to parse JSON response using centralized utility
+                # Use robust JSON parser with automatic error correction
                 try:
-                    cleaned_response = clean_json_response(response_text)
-                    result = json.loads(cleaned_response)
+                    parser = get_json_dict_parser()
+                    result = parser.parse(response_text)
                     result["synthesis_sources"] = len(research_results)
                     return result
-                except json.JSONDecodeError:
-                    # Fallback if not JSON
+                except Exception:
+                    # Fallback if parsing completely fails
                     return {
                         "Analysis_Result": response_text,
                         "synthesis_sources": len(research_results),
