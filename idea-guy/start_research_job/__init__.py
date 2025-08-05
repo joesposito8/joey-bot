@@ -4,6 +4,8 @@ from typing import Dict, Any
 
 from common.durable_orchestrator import DurableOrchestrator
 from common.http_utils import is_testing_mode
+from common.config import FullAgentConfig
+from common.agent_service import AnalysisService
 
 async def main(job_input: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -34,9 +36,6 @@ async def main(job_input: Dict[str, Any]) -> Dict[str, Any]:
             }
         
         # Initialize orchestrator with agent config data
-        from common.config import FullAgentConfig
-        from common.agent_service import AnalysisService
-        
         # Reconstruct agent config from serializable data
         analysis_service = AnalysisService(agent_config_data["spreadsheet_id"])
         orchestrator = DurableOrchestrator(analysis_service.agent_config)

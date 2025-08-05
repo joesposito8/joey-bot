@@ -5,6 +5,52 @@ import json
 from datetime import timedelta
 from typing import Dict, Any
 
+def _poll_job_until_complete(context, job_id: str, job_type: str, agent_config_data: Dict[str, Any], max_polls: int = 12):
+    """
+    Helper function to poll a job until completion using durable timers.
+    
+    Args:
+        context: DurableOrchestrationContext for orchestrator operations
+        job_id: The job ID to poll
+        job_type: Type of job ("research" or "synthesis") for logging
+        agent_config_data: Agent configuration data to pass to activities
+        max_polls: Maximum number of polls before timeout (default: 12 = 1 hour)
+        
+    Returns:
+        Tuple[bool, int] - (job_completed, polls_used)
+    """
+    poll_count = 0
+    job_completed = False
+    
+    while poll_count < max_polls and not job_completed:
+        # Wait 5 minutes between polls (durable timer - no billing cost)
+        if poll_count > 0:  # Skip initial wait
+            logging.info(f"[DURABLE-ORCHESTRATOR] Waiting 5 minutes before next {job_type} poll (poll {poll_count+1}/{max_polls})")
+            yield context.create_timer(context.current_utc_datetime + timedelta(minutes=5))
+        
+        # Check job status (1 second)
+        status_input = {
+            "job_id": job_id,
+            "agent_config_data": agent_config_data
+        }
+        
+        status_result = yield context.call_activity("check_job_status", status_input)
+        status = status_result.get("status")
+        ready_for_fetch = status_result.get("ready_for_fetch", False)
+        
+        logging.info(f"[DURABLE-ORCHESTRATOR] {job_type.title()} job {job_id} status: {status}")
+        
+        if ready_for_fetch:
+            job_completed = True
+            break
+        elif status == "failed":
+            logging.error(f"[DURABLE-ORCHESTRATOR] {job_type.title()} job failed: {job_id}")
+            break
+        
+        poll_count += 1
+    
+    return job_completed, poll_count
+
 def orchestrator_function(context: durablefunctions.DurableOrchestrationContext):
     """
     Durable orchestrator that handles async job polling workflow for Deep Research API.
@@ -64,36 +110,9 @@ def orchestrator_function(context: durablefunctions.DurableOrchestrationContext)
             logging.info(f"[DURABLE-ORCHESTRATOR] Started research job: {research_job_id}")
             
             # Step 2: Poll job status with durable timers (no compute cost during waits)
-            max_polls = 12  # 12 * 5 minutes = 1 hour max wait
-            poll_count = 0
-            job_completed = False
-            
-            while poll_count < max_polls and not job_completed:
-                # Wait 5 minutes between polls (durable timer - no billing cost)
-                if poll_count > 0:  # Skip initial wait
-                    logging.info(f"[DURABLE-ORCHESTRATOR] Waiting 5 minutes before next poll (poll {poll_count+1}/{max_polls})")
-                    yield context.create_timer(context.current_utc_datetime + timedelta(minutes=5))
-                
-                # Check job status (1 second)
-                status_input = {
-                    "job_id": research_job_id,
-                    "agent_config_data": agent_config_data
-                }
-                
-                status_result = yield context.call_activity("check_job_status", status_input)
-                status = status_result.get("status")
-                ready_for_fetch = status_result.get("ready_for_fetch", False)
-                
-                logging.info(f"[DURABLE-ORCHESTRATOR] Job {research_job_id} status: {status}")
-                
-                if ready_for_fetch:
-                    job_completed = True
-                    break
-                elif status == "failed":
-                    logging.error(f"[DURABLE-ORCHESTRATOR] Research job failed: {research_job_id}")
-                    break
-                
-                poll_count += 1
+            job_completed, poll_count = yield from _poll_job_until_complete(
+                context, research_job_id, "research", agent_config_data, max_polls=12
+            )
             
             # Step 3: Fetch completed result (1 second)
             if job_completed:
@@ -112,7 +131,7 @@ def orchestrator_function(context: durablefunctions.DurableOrchestrationContext)
                 else:
                     logging.error(f"[DURABLE-ORCHESTRATOR] Failed to fetch result for: {topic}")
             else:
-                logging.error(f"[DURABLE-ORCHESTRATOR] Research job timed out after {max_polls} polls: {topic}")
+                logging.error(f"[DURABLE-ORCHESTRATOR] Research job timed out after {poll_count} polls: {topic}")
         
         logging.info(f"[DURABLE-ORCHESTRATOR] Completed {len(research_results)} research calls")
         
@@ -135,36 +154,9 @@ def orchestrator_function(context: durablefunctions.DurableOrchestrationContext)
             logging.info(f"[DURABLE-ORCHESTRATOR] Started synthesis job: {synthesis_job_id}")
             
             # Step 2: Poll synthesis job status with durable timers
-            max_polls = 12  # 12 * 5 minutes = 1 hour max wait
-            poll_count = 0
-            synthesis_completed = False
-            
-            while poll_count < max_polls and not synthesis_completed:
-                # Wait 5 minutes between polls (durable timer - no billing cost)
-                if poll_count > 0:  # Skip initial wait
-                    logging.info(f"[DURABLE-ORCHESTRATOR] Waiting 5 minutes before synthesis poll (poll {poll_count+1}/{max_polls})")
-                    yield context.create_timer(context.current_utc_datetime + timedelta(minutes=5))
-                
-                # Check synthesis job status (1 second)
-                status_input = {
-                    "job_id": synthesis_job_id,
-                    "agent_config_data": agent_config_data
-                }
-                
-                status_result = yield context.call_activity("check_job_status", status_input)
-                status = status_result.get("status")
-                ready_for_fetch = status_result.get("ready_for_fetch", False)
-                
-                logging.info(f"[DURABLE-ORCHESTRATOR] Synthesis job {synthesis_job_id} status: {status}")
-                
-                if ready_for_fetch:
-                    synthesis_completed = True
-                    break
-                elif status == "failed":
-                    logging.error(f"[DURABLE-ORCHESTRATOR] Synthesis job failed: {synthesis_job_id}")
-                    break
-                
-                poll_count += 1
+            synthesis_completed, poll_count = yield from _poll_job_until_complete(
+                context, synthesis_job_id, "synthesis", agent_config_data, max_polls=12
+            )
             
             # Step 3: Fetch completed synthesis result (1 second)
             if synthesis_completed:
@@ -182,7 +174,7 @@ def orchestrator_function(context: durablefunctions.DurableOrchestrationContext)
                 else:
                     logging.error(f"[DURABLE-ORCHESTRATOR] Failed to fetch synthesis result")
             else:
-                logging.error(f"[DURABLE-ORCHESTRATOR] Synthesis job timed out after {max_polls} polls")
+                logging.error(f"[DURABLE-ORCHESTRATOR] Synthesis job timed out after {poll_count} polls")
         
         # Fallback synthesis result if async job failed
         if not synthesis_result:
