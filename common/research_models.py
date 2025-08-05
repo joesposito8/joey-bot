@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from langchain_core.output_parsers import PydanticOutputParser, JsonOutputParser
 from langchain.output_parsers import OutputFixingParser
 from langchain_openai import ChatOpenAI
+from common.utils import clean_json_response
 
 
 class ResearchOutput(BaseModel):
@@ -75,17 +76,45 @@ def _get_fixing_llm():
     )
 
 
+class LayeredParser:
+    """Parser that tries clean_json_response before falling back to base parser."""
+    
+    def __init__(self, base_parser):
+        self.base_parser = base_parser
+    
+    def parse(self, text: str):
+        # Layer 1: Try direct parsing first
+        try:
+            return self.base_parser.parse(text)
+        except Exception:
+            # Layer 2: Try with JSON cleaning
+            try:
+                cleaned = clean_json_response(text)
+                return self.base_parser.parse(cleaned)
+            except Exception:
+                # Let OutputFixingParser handle it as Layer 3
+                raise
+    
+    def get_format_instructions(self):
+        return self.base_parser.get_format_instructions()
+
+
 def get_research_output_parser() -> OutputFixingParser:
-    """Get robust LangChain parser for ResearchOutput model with automatic JSON fixing.
+    """Get robust LangChain parser for ResearchOutput model with layered JSON fixing.
+    
+    Layer 1: Direct parsing
+    Layer 2: clean_json_response + parsing  
+    Layer 3: OutputFixingParser LLM correction
 
     Returns:
-        OutputFixingParser that wraps PydanticOutputParser with automatic retry/fix capability
+        OutputFixingParser with built-in preprocessing layers
     """
     global _research_parser
     if _research_parser is None:
         base_parser = PydanticOutputParser(pydantic_object=ResearchOutput)
+        layered_parser = LayeredParser(base_parser)
         _research_parser = OutputFixingParser.from_llm(
-            parser=base_parser,
+            parser=layered_parser,
             llm=_get_fixing_llm(),
             max_retries=2
         )
@@ -93,16 +122,21 @@ def get_research_output_parser() -> OutputFixingParser:
 
 
 def get_json_list_parser() -> OutputFixingParser:
-    """Get robust JSON list parser for research planning topics.
+    """Get robust JSON list parser for research planning topics with layered JSON fixing.
+    
+    Layer 1: Direct parsing
+    Layer 2: clean_json_response + parsing  
+    Layer 3: OutputFixingParser LLM correction
     
     Returns:
-        OutputFixingParser that handles JSON arrays with automatic error correction
+        OutputFixingParser that handles JSON arrays with preprocessing layers
     """
     global _list_parser
     if _list_parser is None:
         base_parser = JsonOutputParser()
+        layered_parser = LayeredParser(base_parser)
         _list_parser = OutputFixingParser.from_llm(
-            parser=base_parser,
+            parser=layered_parser,
             llm=_get_fixing_llm(),
             max_retries=2
         )
@@ -110,16 +144,21 @@ def get_json_list_parser() -> OutputFixingParser:
 
 
 def get_json_dict_parser() -> OutputFixingParser:
-    """Get robust JSON dict parser for synthesis results.
+    """Get robust JSON dict parser for synthesis results with layered JSON fixing.
+    
+    Layer 1: Direct parsing
+    Layer 2: clean_json_response + parsing  
+    Layer 3: OutputFixingParser LLM correction
     
     Returns:
-        OutputFixingParser that handles JSON objects with automatic error correction
+        OutputFixingParser that handles JSON objects with preprocessing layers
     """
     global _dict_parser
     if _dict_parser is None:
         base_parser = JsonOutputParser()
+        layered_parser = LayeredParser(base_parser)
         _dict_parser = OutputFixingParser.from_llm(
-            parser=base_parser,
+            parser=layered_parser,
             llm=_get_fixing_llm(),
             max_retries=2
         )
