@@ -230,7 +230,7 @@ class DurableOrchestrator:
             if random.random() < 0.7:  # 70% chance job is done
                 return {
                     "job_id": job_id,
-                    "status": "succeeded",
+                    "status": "completed",
                     "ready_for_fetch": True
                 }
             else:
@@ -244,8 +244,8 @@ class DurableOrchestrator:
             # Check job status using OpenAI API
             status_response = self.openai_client.responses.retrieve(job_id)
             
-            status = status_response.status  # 'running', 'succeeded', 'failed'
-            ready_for_fetch = status == 'succeeded'
+            status = status_response.status  # 'running', 'succeeded', 'completed', 'failed'
+            ready_for_fetch = status in ['succeeded', 'completed']
             
             logging.info(f"Job {job_id} status: {status}")
             
