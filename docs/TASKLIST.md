@@ -60,6 +60,25 @@
 - [x] Remove unused user_interaction model from platform.yaml
 <!-- Updated from commits 328221f, 07758da, 7a4019f, 45fece7, b44594e -->
 
+### JSON Parsing & Performance Optimization
+- [x] **FIX JSON parsing failures** - Resolved invalid escape sequences (\$1.2M) causing research call failures
+  - Implemented LangChain OutputFixingParser for automatic JSON error correction across all AI calls
+  - Created layered parsing strategy: Direct parsing → clean_json_response → LLM correction
+  - Applied to all 3 parser types: research (PydanticOutputParser), planning (JsonOutputParser), synthesis (JsonOutputParser)
+- [x] **OPTIMIZE LLM correction costs** - Added 3-layer parsing to minimize expensive GPT-4o-mini correction calls
+  - Layer 1: Direct parsing (0ms, clean JSON)
+  - Layer 2: clean_json_response + parsing (1ms, handles escape sequences/markdown)
+  - Layer 3: OutputFixingParser LLM correction (200-1000ms, complex issues only)
+- [x] **IMPLEMENT duplicate prevention** - Comprehensive solution for duplicate research calls issue
+  - Added deterministic job fingerprinting using SHA256 of user_input + budget_tier + agent_id
+  - Implemented request deduplication with existing job detection via Google Sheets
+  - Added Azure Functions concurrency controls (maxConcurrentOrchestratorFunctions: 3)
+  - Enhanced orchestration instance deduplication using deterministic instance IDs
+- [x] **INCREASE function timeout** - Extended Azure Functions timeout from 5 to 10 minutes for deep research calls
+  - Updated host.json with functionTimeout: "00:10:00"
+  - Added environment variable override: AzureFunctionsJobHost__functionTimeout
+<!-- Updated from commits 228afb8, efaa055, 536436f, 2becb73, a141684 -->
+
 ### Sequential Research→Synthesis System Implementation
 - [x] DELETE common/multi_call_architecture.py ENTIRELY - Fundamentally broken (background=True prevents dependencies)
 - [x] CREATE common/research_models.py with LangChain PydanticOutputParser for structured JSON research outputs
@@ -93,7 +112,32 @@
 
 ## Pending Tasks
 
-### PHASE 2: Universal Endpoint Architecture (CURRENT PRIORITY)
+### 🚨 CRITICAL: Deep Research API Async Job Polling (URGENT - TIMEOUT ISSUE)
+
+#### Durable Functions Timeout Resolution
+- [ ] **IMPLEMENT async job polling for research calls using OpenAI Deep Research API**
+  - Update `common/durable_orchestrator.py` to use `background=True` in research calls
+  - Create `StartResearchJob` activity function: POST /v1/deep_research with background=true → returns job_id
+  - Create `CheckResearchStatus` activity function: GET /v1/deep_research/jobs/{job_id} → returns status
+  - Create `FetchResearchResult` activity function: GET /v1/deep_research/jobs/{job_id}/result → returns ResearchOutput
+  - Update orchestrator to use durable timers (5-minute waits with zero billing cost)
+  - Replace current LangChain `ainvoke()` calls with async job polling pattern
+
+- [ ] **IMPLEMENT async job polling for synthesis calls using OpenAI Deep Research API**
+  - Update synthesis calls to use `background=True` for long-running deep research synthesis
+  - Create `StartSynthesisJob` activity function: POST /v1/deep_research with background=true → returns job_id
+  - Create `CheckSynthesisStatus` activity function: GET /v1/deep_research/jobs/{job_id} → returns status
+  - Create `FetchSynthesisResult` activity function: GET /v1/deep_research/jobs/{job_id}/result → returns final result
+  - Integrate synthesis job polling into orchestrator workflow after research completion
+
+- [ ] **REFACTOR Azure Functions structure for async job polling**
+  - Create separate activity functions for each async operation (start/check/fetch)
+  - Update `analysis_orchestrator/__init__.py` to coordinate multiple short activity calls with durable timers
+  - Remove `execute_complete_workflow` monolithic activity function
+  - Implement proper error handling and retry logic for each activity function
+  - Ensure each activity completes in <5 minutes to avoid timeout issues
+
+### PHASE 2: Universal Endpoint Architecture
 
 #### Universal Agent Parameter Support
 - [ ] **ADD agent parameter support to Azure Functions** - Update all 5 endpoints to accept ?agent={agent_id} parameter
@@ -196,7 +240,7 @@
 - [ ] Create agent creation guide for non-technical users
 - [ ] Update troubleshooting guide for universal system
 
-## IMMEDIATE NEXT STEPS (Priority Order) - UNIVERSAL PLATFORM FOCUS
+## IMMEDIATE NEXT STEPS (Priority Order) - TIMEOUT RESOLUTION FOCUS
 
 1. **🔥 CRITICAL**: ~~DELETE common/multi_call_architecture.py and implement DurableOrchestrator~~ ✅ COMPLETED
 2. **🔥 CRITICAL**: ~~CENTRALIZE all prompts in platform.yaml and clean up legacy templates~~ ✅ COMPLETED  
@@ -204,10 +248,12 @@
 4. **🔥 CRITICAL**: ~~AUDIT and remove duplicate/unused components throughout codebase~~ ✅ COMPLETED
 5. **🔥 CRITICAL**: ~~IMPLEMENT fast-return polling system for Custom GPT timeout~~ ✅ COMPLETED 
 6. **🚨 URGENT**: ~~**REPLACE threading with Azure Durable Functions**~~ ✅ COMPLETED - Reliable background processing in Azure Functions achieved
-7. **🔥 CRITICAL**: **ADD agent parameter support to all Azure Functions endpoints** - Enable universal endpoint architecture
-8. **⚡ HIGH**: **UPDATE openapi_chatgpt.yaml schema** - Support agent parameters for Custom GPT integration
-9. **⚡ HIGH**: **CREATE second agent type (HR evaluation)** - Prove universality through pure configuration
-10. **🔧 MEDIUM**: **INTEGRATE cost tracking and web search capabilities** - Production optimization
+7. **🚨 URGENT**: ~~**RESOLVE JSON parsing and duplicate call issues**~~ ✅ COMPLETED - Robust error handling and deduplication implemented
+8. **🚨 CRITICAL**: **IMPLEMENT OpenAI Deep Research API async job polling** - Resolve 10-minute timeout issue by moving long-running work to OpenAI servers
+9. **🔥 CRITICAL**: **ADD agent parameter support to all Azure Functions endpoints** - Enable universal endpoint architecture
+10. **⚡ HIGH**: **UPDATE openapi_chatgpt.yaml schema** - Support agent parameters for Custom GPT integration
+11. **⚡ HIGH**: **CREATE second agent type (HR evaluation)** - Prove universality through pure configuration
+12. **🔧 MEDIUM**: **INTEGRATE cost tracking and web search capabilities** - Production optimization
 
 ## ARCHITECTURE EVOLUTION PLAN
 
