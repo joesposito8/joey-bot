@@ -66,8 +66,14 @@ async def main(job_input: Dict[str, Any]) -> Dict[str, Any]:
         # Fetch job result using OpenAI Deep Research API
         if job_type == "research":
             result = await orchestrator.fetch_research_result(job_id, research_topic)
+            # Convert Pydantic ResearchOutput to dict for JSON serialization
+            if hasattr(result, 'model_dump'):
+                result = result.model_dump()
+            elif hasattr(result, 'dict'):
+                result = result.dict()
         else:  # synthesis
             result = await orchestrator.fetch_synthesis_result(job_id)
+            # Result should already be a dict for synthesis
         
         logging.info(f"[FETCH-JOB-RESULT] Successfully fetched {job_type} result for job: {job_id}")
         return {
