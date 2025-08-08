@@ -60,8 +60,7 @@ class BudgetTierConfig:
     """Budget tier configuration for agent."""
 
     name: str  # "basic", "standard", "premium"
-    price: float  # Price in USD
-    calls: int  # Number of OpenAI calls
+    num_research_calls: int  # Number of research calls (planning/synthesis always 1 each)
     description: str  # Human-readable description
     deliverables: List[str] = None  # Optional list of deliverables
 
@@ -69,22 +68,40 @@ class BudgetTierConfig:
         """Validate budget tier configuration."""
         if self.deliverables is None:
             self.deliverables = []
-        if self.price <= 0:
-            raise ValueError("Price must be positive")
-        if self.calls <= 0:
-            raise ValueError("Calls must be positive")
+        if self.num_research_calls < 0:
+            raise ValueError("Number of research calls must be non-negative")
         if not self.name or not self.name.strip():
             raise ValueError("Name cannot be empty")
         if not self.description or len(self.description.strip()) < 10:
             raise ValueError("Description must be at least 10 characters")
+
+    def calculate_price(self, agent_config: 'FullAgentConfig') -> float:
+        """Calculate dynamic price based on model costs and call structure."""
+        # Model costs per call
+        model_costs = {
+            "o4-mini": 0.25,
+            "o4-mini-deep-research": 1.00,
+            "gpt-4o-mini": 0.05
+        }
+        
+        # Get models from agent config
+        planning_model = agent_config.get_model('planning')
+        research_model = agent_config.get_model('research')
+        synthesis_model = agent_config.get_model('synthesis')
+        
+        # Calculate total cost: 1 planning + N research + 1 synthesis
+        planning_cost = model_costs.get(planning_model, 0.25)
+        research_cost = model_costs.get(research_model, 1.00) * self.num_research_calls
+        synthesis_cost = model_costs.get(synthesis_model, 0.25)
+        
+        return planning_cost + research_cost + synthesis_cost
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'BudgetTierConfig':
         """Create BudgetTierConfig from dictionary data."""
         return cls(
             name=data['name'],
-            price=float(data['price']),
-            calls=int(data['calls']),
+            num_research_calls=int(data['num_research_calls']),
             description=data['description'],
             deliverables=data.get('deliverables', []),
         )
@@ -228,8 +245,7 @@ class FullAgentConfig:
             tiers.append(
                 BudgetTierConfig(
                     name=tier_data['name'],
-                    price=float(tier_data['price']),
-                    calls=int(tier_data['calls']),
+                    num_research_calls=int(tier_data['num_research_calls']),
                     description=tier_data['description'],
                     deliverables=tier_data.get('deliverables', []),
                 )

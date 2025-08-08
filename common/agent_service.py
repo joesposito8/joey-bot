@@ -134,12 +134,13 @@ class AnalysisService:
         # Generate pricing options from universal budget configuration
         pricepoints = []
         for tier in self.agent_config.get_budget_tiers():
+            calculated_price = tier.calculate_price(self.agent_config)
             pricepoints.append(
                 {
                     "level": tier.name,
                     "name": f"{tier.name.title()} Analysis",
-                    "max_cost": tier.price,
-                    "estimated_cost": tier.price,
+                    "max_cost": calculated_price,
+                    "estimated_cost": calculated_price,
                     "model": self.agent_config.get_model(
                         'research'
                     ),  # Use unified model resolution
@@ -148,7 +149,7 @@ class AnalysisService:
                     "time_estimate": getattr(
                         tier,
                         'time_estimate',
-                        f"{tier.calls * 5}-{tier.calls * 10} minutes",
+                        f"{(1 + tier.num_research_calls + 1) * 5}-{(1 + tier.num_research_calls + 1) * 10} minutes",
                     ),
                 }
             )

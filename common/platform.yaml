@@ -18,9 +18,8 @@ platform:
   # Universal budget tiers - same pricing and capabilities for ALL agents
   budget_tiers:
     - name: "basic"
-      price: 1.00
-      calls: 1
-      description: "1 optimized call with intelligent architecture planning"
+      num_research_calls: 0
+      description: "1 planning + 1 synthesis call with intelligent architecture"
       time_estimate: "5-10 minutes"
       deliverables:
         - "Comprehensive analysis with detailed insights and specific rationales"
@@ -31,9 +30,8 @@ platform:
         - "Cost-benefit analysis with projections where applicable"
       
     - name: "standard"
-      price: 3.00
-      calls: 3
-      description: "3 coordinated calls with intelligent architecture planning"
+      num_research_calls: 2
+      description: "1 planning + 2 research + 1 synthesis call with intelligent architecture"
       time_estimate: "15-20 minutes"
       deliverables:
         - "Comprehensive analysis with detailed insights and specific rationales"
@@ -44,9 +42,8 @@ platform:
         - "Cost-benefit analysis with projections where applicable"
       
     - name: "premium"
-      price: 5.00
-      calls: 5
-      description: "5 coordinated calls with intelligent architecture planning"
+      num_research_calls: 4
+      description: "1 planning + 4 research + 1 synthesis call with intelligent architecture"
       time_estimate: "20-30 minutes"
       deliverables:
         - "Comprehensive analysis with detailed insights and specific rationales"
