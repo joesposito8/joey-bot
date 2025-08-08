@@ -57,10 +57,10 @@ class DurableOrchestrator:
                 f"Invalid budget tier '{budget_tier}'. Available: {available_tiers}"
             )
 
-        # Calculate research vs synthesis allocation
-        total_calls = tier_config.calls
+        # Calculate research vs synthesis allocation based on dynamic pricing model
+        research_calls = tier_config.num_research_calls
         synthesis_calls = 1  # Always 1 synthesis call
-        research_calls = max(0, total_calls - synthesis_calls)
+        total_calls = research_calls + synthesis_calls
 
         # Generate research topics based on user input
         research_topics = self._generate_research_topics(user_input, research_calls)

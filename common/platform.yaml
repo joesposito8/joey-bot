@@ -13,7 +13,7 @@ platform:
   models:
     planning: "o4-mini"                 # Model for research topic planning
     research: "o4-mini"                 # Model for individual research calls
-    synthesis: "o4-mini"                # Model for final synthesis
+    synthesis: "o4-mini-deep-research"                # Model for final synthesis
 
   # Universal budget tiers - same pricing and capabilities for ALL agents
   budget_tiers:
